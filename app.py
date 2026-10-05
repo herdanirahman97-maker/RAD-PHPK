@@ -91,7 +91,8 @@ def render_header(title):
         import base64
         with open(logo_path, "rb") as f:
             encoded = base64.b64encode(f.read()).decode()
-        logo_html = f"<img src='data:image/png;base64,{encoded}' style='height:38px; object-fit:contain; background:white; padding:4px 10px; border-radius:6px; margin-right:15px;'>"
+        # Logo Primaya di pojok kiri atas
+        logo_html = f"<img src='data:image/png;base64,{encoded}' style='height:36px; object-fit:contain; background:white; padding:4px 10px; border-radius:6px; margin-right:15px;'>"
     else:
         logo_html = "<div style='background:white;color:#005580;padding:6px 12px;border-radius:6px;font-weight:bold;margin-right:15px;'>+ PRIMAYA</div>"
         
@@ -246,7 +247,7 @@ def page_input():
         """, unsafe_allow_html=True)
 
 # =====================================================================
-# 3. MENU: DOWNLOAD & CETAK PDF FORMAT RESMI PRIMAYA
+# 3. MENU: CETAK & UNDUH PDF (SIMETRIS PRESISI FORMULIR PRIMAYA)
 # =====================================================================
 def page_download():
     render_header("Cetak / Unduh Formulir Resmi Suhu & Kelembapan Ruangan")
@@ -257,7 +258,7 @@ def page_download():
     sel_month = col_f2.selectbox("Pilih Bulan Laporan", range(1, 13), format_func=lambda x: BLN[x-1], index=t.month-1)
     
     st.markdown("### Preview Formulir Fisik Resmi Primaya Hospital")
-    st.caption("Klik tombol di bawah untuk membuka pratinjau cetak / simpan sebagai PDF.")
+    st.caption("Tabel di bawah dirancang simetris dengan ukuran kolom & baris seragam serta warna persis standar Primaya Hospital.")
     
     days_in_month = calendar.monthrange(t.year, sel_month)[1]
     real_data = {}
@@ -274,10 +275,10 @@ def page_download():
     std = ROOM_STANDARDS[selected_filter_room]
     t_lo, t_hi = std["temp"]
     
-    # Membangun HTML Cetak Persis seperti Form PDF Primaya
+    # Membangun baris suhu simetris (32°C turun ke 18°C)
     temp_rows_html = ""
-    for temp_val in range(32, 15, -1):
-        row_cells = f"<td style='border:1px solid #999; padding:2px; text-align:center; font-weight:bold; background:#eef2f7;'>{temp_val}°C</td>"
+    for temp_val in range(32, 17, -1):
+        row_cells = f"<td style='border:1px solid #b0c4de; padding:0; text-align:center; font-weight:bold; background:#eef5fc; width:65px; height:24px; font-size:10px;'>{temp_val}°C</td>"
         for d in range(1, 32):
             cur_date = dt.date(t.year, sel_month, d) if d <= days_in_month else None
             for s_code in ["P", "S", "M"]:
@@ -292,28 +293,28 @@ def page_download():
                             val = t_hi + 1.5
                             
                     if val is not None and round(val) == temp_val:
-                        color = "#d64545" if not (t_lo <= val <= t_hi) else "#111"  # Merah jika abnormal, hitam jika normal
-                        dot_html = f"<div style='width:7px; height:7px; background:{color}; border-radius:50%; margin:0 auto;'></div>"
-                row_cells += f"<td style='border:1px solid #ccc; padding:2px; text-align:center; height:18px;'>{dot_html}</td>"
+                        color = "#d64545" if not (t_lo <= val <= t_hi) else "#111"  # Merah abnormal, hitam normal
+                        dot_html = f"<div style='width:6px; height:6px; background:{color}; border-radius:50%; margin:0 auto;'></div>"
+                row_cells += f"<td style='border:1px solid #dcdcdc; padding:0; text-align:center; width:22px; height:24px;'>{dot_html}</td>"
         temp_rows_html += f"<tr>{row_cells}</tr>"
         
     # Baris Kelembapan
-    hum_cells = "<td style='border:1px solid #999; padding:3px; font-weight:bold; background:#eef2f7; font-size:9px;'>Kelembapan (%)</td>"
+    hum_cells = "<td style='border:1px solid #b0c4de; padding:4px; font-weight:bold; background:#eef5fc; font-size:9px; height:26px;'>Kelembapan (%)</td>"
     for d in range(1, 32):
         cur_date = dt.date(t.year, sel_month, d) if d <= days_in_month else None
         for s_code in ["P", "S", "M"]:
             h_val = ""
             if d <= days_in_month:
                 if (d, s_code) in real_data:
-                    h_val = str(real_data[(d, s_code)]["kelembapan"])
+                    h_val = str(int(float(real_data[(d, s_code)]["kelembapan"])))
                 elif DUMMY() and cur_date <= t:
                     h_val = str(int(round(rnd.uniform(45, 55), 0)))
-            hum_cells += f"<td style='border:1px solid #ccc; padding:2px; text-align:center; font-size:8px;'>{h_val}</td>"
+            hum_cells += f"<td style='border:1px solid #dcdcdc; padding:0; text-align:center; font-size:8px; height:26px;'>{h_val}</td>"
             
     # Baris Petugas Shift (Pagi, Siang/Sore, Malam)
     staff_rows_html = ""
     for label_s, code_s in [("Nama (Pagi)", "P"), ("Nama (Siang)", "S"), ("Nama (Malam)", "M")]:
-        st_cells = f"<td style='border:1px solid #999; padding:3px; font-weight:bold; background:#eef2f7; font-size:9px;'>{label_s}</td>"
+        st_cells = f"<td style='border:1px solid #b0c4de; padding:4px; font-weight:bold; background:#eef5fc; font-size:9px; height:26px;'>{label_s}</td>"
         for d in range(1, 32):
             cur_date = dt.date(t.year, sel_month, d) if d <= days_in_month else None
             for sc in ["P", "S", "M"]:
@@ -323,28 +324,28 @@ def page_download():
                         st_val = real_data[(d, code_s)]["petugas"]
                     elif DUMMY() and cur_date <= t:
                         st_val = STAFF_LIST[(d + (0 if code_s=='P' else 1 if code_s=='S' else 2)) % len(STAFF_LIST)]
-                st_cells += f"<td style='border:1px solid #ccc; padding:2px; text-align:center; font-size:8px; font-weight:bold;'>{st_val}</td>"
+                st_cells += f"<td style='border:1px solid #dcdcdc; padding:0; text-align:center; font-size:8px; font-weight:bold; height:26px;'>{st_val}</td>"
         staff_rows_html += f"<tr>{st_cells}</tr>"
 
-    # Header tanggal 1 sampai 31
-    hdr_days = "<td rowspan='2' style='border:1px solid #999; background:#005580; color:white; font-weight:bold; padding:4px; font-size:9px;'>Tanggal</td>"
+    # Header tanggal 1 sampai 31 dengan warna resmi #005580 & #cfe3f7
+    hdr_days = "<td rowspan='2' style='border:1px solid #b0c4de; background:#005580; color:white; font-weight:bold; padding:4px; font-size:9px; text-align:center; width:65px;'>Tanggal</td>"
     hdr_shifts = ""
     for d in range(1, 32):
-        hdr_days += f"<td colspan='3' style='border:1px solid #999; background:#005580; color:white; font-weight:bold; text-align:center; font-size:9px;'>{d}</td>"
-        hdr_shifts += "<td style='border:1px solid #ccc; background:#cfe3f7; text-align:center; font-size:7px; font-weight:bold;'>P</td><td style='border:1px solid #ccc; background:#cfe3f7; text-align:center; font-size:7px; font-weight:bold;'>S</td><td style='border:1px solid #ccc; background:#cfe3f7; text-align:center; font-size:7px; font-weight:bold;'>M</td>"
+        hdr_days += f"<td colspan='3' style='border:1px solid #b0c4de; background:#005580; color:white; font-weight:bold; text-align:center; font-size:9px; height:20px;'>{d}</td>"
+        hdr_shifts += "<td style='border:1px solid #b0c4de; background:#cfe3f7; color:#111; text-align:center; font-size:7.5px; font-weight:bold; width:22px; height:18px;'>P</td><td style='border:1px solid #b0c4de; background:#cfe3f7; color:#111; text-align:center; font-size:7.5px; font-weight:bold; width:22px; height:18px;'>S</td><td style='border:1px solid #b0c4de; background:#cfe3f7; color:#111; text-align:center; font-size:7.5px; font-weight:bold; width:22px; height:18px;'>M</td>"
 
     print_html = f"""
     <html>
     <head>
     <style>
-        body {{ font-family: Arial, sans-serif; color: #111; margin: 0; padding: 10px; }}
-        .form-container {{ width: 100%; max-width: 1100px; margin: 0 auto; border: 2px solid #005580; padding: 15px; background: #fff; }}
-        .header-top {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #005580; padding-bottom: 10px; margin-bottom: 10px; }}
-        .hospital-title {{ font-size: 20px; font-weight: bold; color: #005580; }}
-        .form-title {{ text-align: right; font-size: 14px; font-weight: bold; color: #005580; }}
-        .meta-info {{ display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 10px; font-weight: bold; }}
-        table {{ border-collapse: collapse; width: 100%; margin-bottom: 10px; }}
-        .footer-note {{ font-size: 8.5px; color: #444; line-height: 1.3; border-top: 1px solid #ccc; padding-top: 6px; }}
+        body {{ font-family: Arial, sans-serif; color: #111; margin: 0; padding: 5px; background: #fff; }}
+        .form-container {{ width: 100%; max-width: 1120px; margin: 0 auto; border: 2px solid #005580; padding: 12px; background: #fff; box-sizing: border-box; }}
+        .header-top {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #005580; padding-bottom: 8px; margin-bottom: 8px; }}
+        .hospital-title {{ font-size: 18px; font-weight: bold; color: #005580; letter-spacing: 0.5px; }}
+        .form-title {{ text-align: right; font-size: 13px; font-weight: bold; color: #005580; line-height: 1.2; }}
+        .meta-info {{ display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 8px; font-weight: bold; color: #333; }}
+        table {{ border-collapse: collapse; width: 100%; margin-bottom: 10px; table-layout: fixed; }}
+        .footer-note {{ font-size: 8.5px; color: #444; line-height: 1.3; border-top: 1px solid #b0c4de; padding-top: 6px; }}
         @media print {{
             body {{ padding: 0; }}
             .no-print {{ display: none; }}
@@ -371,13 +372,13 @@ def page_download():
         <div class="footer-note">
             <b>Catatan:</b><br>
             - P (Pagi) Pkl 08.00 Waktu Setempat, S (Sore) Pkl 14.00 Waktu Setempat, M (Malam) Pkl 21.00 Waktu Setempat.<br>
-            - Titik Hitam (●) = Suhu Normal | Titik Merah (🔴) = Suhu di luar batas standar.<br>
+            - Titik Hitam (●) = Suhu Normal | Titik Merah (🔴) = Suhu di luar batas standar ({t_lo}&ndash;{t_hi}°C).<br>
             - Jika suhu dan kelembapan tidak sesuai dengan batasan normal, segera hubungi petugas maintenance.<br>
             <b>Form/PHG/GAD-11-1/Rev.03</b>
         </div>
     </div>
     <div style="text-align: center; margin-top: 15px;" class="no-print">
-        <button onclick="window.print()" style="background:#005580; color:white; border:none; padding:10px 20px; font-size:14px; font-weight:bold; border-radius:5px; cursor:pointer;">🖨 Cetak Formulir / Simpan ke PDF</button>
+        <button onclick="window.print()" style="background:#005580; color:white; border:none; padding:10px 22px; font-size:14px; font-weight:bold; border-radius:5px; cursor:pointer;">🖨 Cetak Formulir / Simpan ke PDF</button>
     </div>
     </body>
     </html>
