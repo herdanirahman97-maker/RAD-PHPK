@@ -11,6 +11,7 @@ import zlib
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Radiologi - Primaya Hospital", page_icon="🏥", layout="wide")
 
@@ -19,7 +20,7 @@ ENTRY_FILE = os.path.join(DATA_DIR, "entries.csv")
 os.makedirs(DATA_DIR, exist_ok=True)
 
 # =====================================================================
-# STYLING
+# STYLING & BRANDING
 # =====================================================================
 st.markdown("""
 <style>
@@ -91,7 +92,6 @@ def render_header(title):
         import base64
         with open(logo_path, "rb") as f:
             encoded = base64.b64encode(f.read()).decode()
-        # Logo dipindah ke pojok kiri atas di dalam box header
         logo_html = f"<img src='data:image/png;base64,{encoded}' style='height:38px; object-fit:contain; background:white; padding:4px 10px; border-radius:6px; margin-right:15px;'>"
     else:
         logo_html = "<div style='background:white;color:#005580;padding:6px 12px;border-radius:6px;font-weight:bold;margin-right:15px;'>+ PRIMAYA</div>"
@@ -247,19 +247,19 @@ def page_input():
         """, unsafe_allow_html=True)
 
 # =====================================================================
-# 3. MENU: DOWNLOAD DATA (FORMAT PDF / FORMULIR PRIMAYA)
+# 3. MENU: DOWNLOAD DATA (FORMAT GRAFIK TITIK HITAM/MERAH & PETUGAS)
 # =====================================================================
 def page_download():
-    render_header("Unduh Rekapitulasi Data Suhu Format Formulir Primaya")
+    render_header("Unduh Rekapitulasi Data Format Formulir Resmi Primaya")
     
     col_f1, col_f2 = st.columns(2)
     selected_filter_room = col_f1.selectbox("Pilih Ruangan untuk Diunduh", ROOM_LIST)
     t = TODAY()
     sel_month = col_f2.selectbox("Pilih Bulan Laporan", range(1, 13), format_func=lambda x: BLN[x-1], index=t.month-1)
     
-    st.markdown(f"### Preview Format Matrik Laporan Bulanan ({selected_filter_room} - {BLN[sel_month-1]} {t.year})")
+    st.markdown(f"### Preview Matrik Format Formulir Fisik ({selected_filter_room} - {BLN[sel_month-1]} {t.year})")
+    st.caption("🔴 Titik Merah = Suhu di luar batas standar | ⚫ Titik Hitam = Suhu normal")
     
-    # Membangun dataframe matriks persis seperti PDF Primaya
     days_in_month = calendar.monthrange(t.year, sel_month)[1]
     
     real_data = {}
@@ -277,44 +277,101 @@ def page_download():
     t_lo, t_hi = std["temp"]
     h_lo, h_hi = std["hum"]
     
-    matrix_rows = {f"Suhu (°C) [{t_lo}-{t_hi}]": {}, "Kelembapan (%)": {}, "Inisial Petugas": {}}
+    # Rentang suhu visual untuk tabel matriks (misal dari 16°C sampai 32°C)
+    temp_levels = list(range(32, 15, -1))
     
-    for d in range(1, 32):
-        if d <= days_in_month:
-            cur_date = dt.date(t.year, sel_month, d)
+    matrix_data = []
+    
+    # Baris Suhu (16 sampai 32 derajat) dengan titik hitam/merah
+    for temp_val in temp_levels:
+        row_dict = {"Parameter / Suhu": f"{temp_val} °C"}
+        for d in range(1, 32):
+            cur_date = dt.date(t.year, sel_month, d) if d <= days_in_month else None
             for s_code in ["P", "S", "M"]:
                 col_key = f"Tgl {d} ({s_code})"
-                if (d, s_code) in real_data:
-                    item = real_data[(d, s_code)]
-                    matrix_rows[f"Suhu (°C) [{t_lo}-{t_hi}]"][col_key] = item["suhu"]
-                    matrix_rows["Kelembapan (%)"][col_key] = item["kelembapan"]
-                    matrix_rows["Inisial Petugas"][col_key] = item["petugas"]
-                elif DUMMY() and cur_date <= t:
-                    v_t = round(rnd.uniform(t_lo, t_hi), 1)
-                    v_h = round(rnd.uniform(45, 55), 0)
-                    matrix_rows[f"Suhu (°C) [{t_lo}-{t_hi}]"][col_key] = str(v_t)
-                    matrix_rows["Kelembapan (%)"][col_key] = str(int(v_h))
-                    matrix_rows["Inisial Petugas"][col_key] = STAFF_LIST[(d + (0 if s_code=='P' else 1 if s_code=='S' else 2)) % len(STAFF_LIST)]
+                if d <= days_in_month:
+                    val = None
+                    if (d, s_code) in real_data:
+                        val = float(real_data[(d, s_code)]["suhu"])
+                    elif DUMMY() and cur_date <= t:
+                        val = round(rnd.uniform(t_lo - 0.5, t_hi + 0.5), 1)
+                        if rnd.random() < 0.05:
+                            val = t_hi + 1.5
+                            
+                    if val is not None and round(val) == temp_val:
+                        # Tentukan titik hitam atau merah berdasarkan standar
+                        if t_lo <= val <= t_hi:
+                            row_dict[col_key] = "● (Hitam)"   # Normal
+                        else:
+                            row_dict[col_key] = "🔴 (Merah)"   # Di luar batas
+                    else:
+                        row_dict[col_key] = ""
                 else:
-                    matrix_rows[f"Suhu (°C) [{t_lo}-{t_hi}]"][col_key] = ""
-                    matrix_rows["Kelembapan (%)"][col_key] = ""
-                    matrix_rows["Inisial Petugas"][col_key] = ""
-        else:
-            for s_code in ["P", "S", "M"]:
-                col_key = f"Tgl {d} ({s_code})"
-                matrix_rows[f"Suhu (°C) [{t_lo}-{t_hi}]"][col_key] = "-"
-                matrix_rows["Kelembapan (%)"][col_key] = "-"
-                matrix_rows["Inisial Petugas"][col_key] = "-"
+                    row_dict[col_key] = "-"
+        matrix_data.append(row_dict)
+        
+    # Baris Kelembapan
+    hum_row = {"Parameter / Suhu": "Kelembapan (%)"}
+    for d in range(1, 32):
+        cur_date = dt.date(t.year, sel_month, d) if d <= days_in_month else None
+        for s_code in ["P", "S", "M"]:
+            col_key = f"Tgl {d} ({s_code})"
+            if d <= days_in_month:
+                if (d, s_code) in real_data:
+                    hum_row[col_key] = str(real_data[(d, s_code)]["kelembapan"])
+                elif DUMMY() and cur_date <= t:
+                    hum_row[col_key] = str(int(round(rnd.uniform(45, 55), 0)))
+                else:
+                    hum_row[col_key] = ""
+            else:
+                hum_row[col_key] = "-"
+    matrix_data.append(hum_row)
+    
+    # Baris Inisial Petugas per Shift (Pagi, Sore, Malam)
+    for shift_name, s_code in [("Nama (Pagi)", "P"), ("Nama (Siang)", "S"), ("Nama (Malam)", "M")]:
+        staff_row = {"Parameter / Suhu": shift_name}
+        for d in range(1, 32):
+            cur_date = dt.date(t.year, sel_month, d) if d <= days_in_month else None
+            for sc in ["P", "S", "M"]:
+                col_key = f"Tgl {d} ({sc})"
+                if sc == s_code and d <= days_in_month:
+                    if (d, s_code) in real_data:
+                        staff_row[col_key] = real_data[(d, s_code)]["petugas"]
+                    elif DUMMY() and cur_date <= t:
+                        staff_row[col_key] = STAFF_LIST[(d + (0 if s_code=='P' else 1 if s_code=='S' else 2)) % len(STAFF_LIST)]
+                    else:
+                        staff_row[col_key] = ""
+                else:
+                    if sc == s_code:
+                        staff_row[col_key] = ""
+                    else:
+                        # Kolom shift lain dikosongkan pada baris shift ini agar persis seperti form cetak
+                        pass
+        # Perbaikan mapping kolom shift per baris petugas
+        clean_staff_row = {"Parameter / Suhu": shift_name}
+        for d in range(1, 32):
+            for sc in ["P", "S", "M"]:
+                col_key = f"Tgl {d} ({sc})"
+                if sc == s_code and d <= days_in_month:
+                    val_st = ""
+                    if (d, s_code) in real_data:
+                        val_st = real_data[(d, s_code)]["petugas"]
+                    elif DUMMY() and dt.date(t.year, sel_month, d) <= t:
+                        val_st = STAFF_LIST[(d + (0 if s_code=='P' else 1 if s_code=='S' else 2)) % len(STAFF_LIST)]
+                    clean_staff_row[col_key] = val_st
+                else:
+                    clean_staff_row[col_key] = ""
+        matrix_data.append(clean_staff_row)
 
-    matrix_df = pd.DataFrame(matrix_rows).T
-    st.dataframe(matrix_df, use_container_width=True)
+    final_df = pd.DataFrame(matrix_data)
+    st.dataframe(final_df, use_container_width=True)
     
     bio = io.BytesIO()
     with pd.ExcelWriter(bio, engine="openpyxl") as xw:
-        matrix_df.to_excel(xw, sheet_name=f"Form_{selected_filter_room[:15]}")
+        final_df.to_excel(xw, sheet_name=f"Form_{selected_filter_room[:12]}", index=False)
         
     st.download_button(
-        label=f"⬇️ Download Excel Format Formulir Resmi ({selected_filter_room})",
+        label=f"⬇️️ Download Excel Format Formulir Resmi ({selected_filter_room})",
         data=bio.getvalue(),
         file_name=f"Formulir_Suhu_{selected_filter_room.lower().replace(' ', '_')}_{BLN[sel_month-1]}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
