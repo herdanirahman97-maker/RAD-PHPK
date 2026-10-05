@@ -91,7 +91,6 @@ def render_header(title):
         import base64
         with open(logo_path, "rb") as f:
             encoded = base64.b64encode(f.read()).decode()
-        # Logo Primaya di pojok kiri atas
         logo_html = f"<img src='data:image/png;base64,{encoded}' style='height:36px; object-fit:contain; background:white; padding:4px 10px; border-radius:6px; margin-right:15px;'>"
     else:
         logo_html = "<div style='background:white;color:#005580;padding:6px 12px;border-radius:6px;font-weight:bold;margin-right:15px;'>+ PRIMAYA</div>"
@@ -258,7 +257,7 @@ def page_download():
     sel_month = col_f2.selectbox("Pilih Bulan Laporan", range(1, 13), format_func=lambda x: BLN[x-1], index=t.month-1)
     
     st.markdown("### Preview Formulir Fisik Resmi Primaya Hospital")
-    st.caption("Tabel di bawah dirancang simetris dengan ukuran kolom & baris seragam serta warna persis standar Primaya Hospital.")
+    st.caption("Tabel di bawah diselaraskan simetris dengan ukuran kotak kolom & baris persis standar formulir asli.")
     
     days_in_month = calendar.monthrange(t.year, sel_month)[1]
     real_data = {}
@@ -278,7 +277,7 @@ def page_download():
     # Membangun baris suhu simetris (32°C turun ke 18°C)
     temp_rows_html = ""
     for temp_val in range(32, 17, -1):
-        row_cells = f"<td style='border:1px solid #b0c4de; padding:0; text-align:center; font-weight:bold; background:#eef5fc; width:65px; height:24px; font-size:10px;'>{temp_val}°C</td>"
+        row_cells = f"<td style='border:1px solid #b0c4de; padding:0; text-align:center; font-weight:bold; background:#eef5fc; width:75px; height:24px; font-size:10px;'>{temp_val}°C</td>"
         for d in range(1, 32):
             cur_date = dt.date(t.year, sel_month, d) if d <= days_in_month else None
             for s_code in ["P", "S", "M"]:
@@ -309,9 +308,9 @@ def page_download():
                     h_val = str(int(float(real_data[(d, s_code)]["kelembapan"])))
                 elif DUMMY() and cur_date <= t:
                     h_val = str(int(round(rnd.uniform(45, 55), 0)))
-            hum_cells += f"<td style='border:1px solid #dcdcdc; padding:0; text-align:center; font-size:8px; height:26px;'>{h_val}</td>"
+            hum_cells += f"<td style='border:1px solid #dcdcdc; padding:0; text-align:center; font-size:8px; width:22px; height:26px;'>{h_val}</td>"
             
-    # Baris Petugas Shift (Pagi, Siang/Sore, Malam)
+    # Baris Petugas Shift (Pagi, Siang/Sore, Malam) dengan pemisahan cell persis per sub-kolom P, S, M
     staff_rows_html = ""
     for label_s, code_s in [("Nama (Pagi)", "P"), ("Nama (Siang)", "S"), ("Nama (Malam)", "M")]:
         st_cells = f"<td style='border:1px solid #b0c4de; padding:4px; font-weight:bold; background:#eef5fc; font-size:9px; height:26px;'>{label_s}</td>"
@@ -324,11 +323,11 @@ def page_download():
                         st_val = real_data[(d, code_s)]["petugas"]
                     elif DUMMY() and cur_date <= t:
                         st_val = STAFF_LIST[(d + (0 if code_s=='P' else 1 if code_s=='S' else 2)) % len(STAFF_LIST)]
-                st_cells += f"<td style='border:1px solid #dcdcdc; padding:0; text-align:center; font-size:8px; font-weight:bold; height:26px;'>{st_val}</td>"
+                st_cells += f"<td style='border:1px solid #dcdcdc; padding:0; text-align:center; font-size:8px; font-weight:bold; width:22px; height:26px;'>{st_val}</td>"
         staff_rows_html += f"<tr>{st_cells}</tr>"
 
     # Header tanggal 1 sampai 31 dengan warna resmi #005580 & #cfe3f7
-    hdr_days = "<td rowspan='2' style='border:1px solid #b0c4de; background:#005580; color:white; font-weight:bold; padding:4px; font-size:9px; text-align:center; width:65px;'>Tanggal</td>"
+    hdr_days = "<td rowspan='2' style='border:1px solid #b0c4de; background:#005580; color:white; font-weight:bold; padding:4px; font-size:9px; text-align:center; width:75px;'>Tanggal</td>"
     hdr_shifts = ""
     for d in range(1, 32):
         hdr_days += f"<td colspan='3' style='border:1px solid #b0c4de; background:#005580; color:white; font-weight:bold; text-align:center; font-size:9px; height:20px;'>{d}</td>"
