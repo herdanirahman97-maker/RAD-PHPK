@@ -95,20 +95,29 @@ def page_download():
 
 
 # ============================================================
-# NAVIGATION
+# NAVIGATION - compatible with older Streamlit versions
 # ============================================================
-pg = st.navigation([
-    st.Page(page_dashboard, title="1. Dashboard", icon="📊", default=True),
-    st.Page(page_input, title="2. Input Suhu Harian", icon="🌡️"),
-    st.Page(page_download, title="3. Download Data", icon="📥"),
-])
-
 with st.sidebar:
     st.markdown("### PRIMAYA RADIOLOGY")
     st.caption("Monitoring Suhu & Kelembapan")
+    st.markdown("---")
+    menu = st.radio(
+        "MENU",
+        [
+            "1. Dashboard",
+            "2. Input Suhu Harian",
+            "3. Download Data",
+        ],
+        index=0,
+    )
     st.markdown("---")
     st.caption("Data tersimpan lokal pada:")
     st.code(ENTRY_FILE, language=None)
     st.caption("Form/PHG/GAD-11-1/Rev.03")
 
-pg.run()
+if menu == "1. Dashboard":
+    page_dashboard()
+elif menu == "2. Input Suhu Harian":
+    page_input()
+else:
+    page_download()
