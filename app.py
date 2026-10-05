@@ -1,7 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Formulir Digital Suhu & Kelembapan Departemen Radiologi - Primaya Hospital
-"""
 import calendar
 import datetime as dt
 import os
@@ -18,7 +15,6 @@ DATA_DIR = "data_primaya_radiologi"
 ENTRY_FILE = os.path.join(DATA_DIR, "entries.csv")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# Styling & Branding
 st.markdown("""
 <style>
 .stApp{background:#f4f7fa}
@@ -105,7 +101,6 @@ def render_header(title):
     </div>
     """, unsafe_allow_html=True)
 
-# 1. DASHBOARD
 def page_dashboard():
     render_header("Dashboard Rangkuman Pencapaian Suhu & Kelembapan")
     col1, col2 = st.columns([2, 2])
@@ -162,7 +157,7 @@ def page_dashboard():
     
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown("### ⚠️️ Tanggal & Shift Suhu Di Atas/Bawah Batas Standar")
+        st.markdown("### ⚠️ Tanggal & Shift Suhu Di Atas/Bawah Batas Standar")
         if abnormal_slots:
             for ab in abnormal_slots: st.markdown(f"- 🔴 {ab} *(Target: {t_lo}&ndash;{t_hi}°C)*")
         else: st.success("Tidak ada catatan suhu di luar batas standar pada periode ini.")
@@ -173,7 +168,6 @@ def page_dashboard():
             st.write(", ".join(empty_slots[:30]))
         else: st.success("Semua jadwal pemantauan terisi lengkap!")
 
-# 2. INPUT SUHU HARIAN
 def page_input():
     render_header("Formulir Input Suhu Harian Radiologi")
     col1, col2 = st.columns([2, 1])
@@ -221,7 +215,6 @@ def page_input():
         </div>
         """, unsafe_allow_html=True)
 
-# 3. CETAK & UNDUH PDF
 def page_download():
     render_header("Cetak / Unduh Formulir Resmi Suhu & Kelembapan Ruangan")
     col_f1, col_f2 = st.columns(2)
@@ -291,7 +284,7 @@ def page_download():
                 st_val = ""
                 if d <= days_in_month and sc == code_s:
                     if (d, code_s) in real_data:
-                        st_val = real_data[(d, code_s)]["petugas"]
+                        st_val = real_data[(d, code_s] if False else real_data[(d, code_s)]['petugas']
                     elif DUMMY() and cur_date <= t:
                         st_val = STAFF_LIST[(d + (0 if code_s=='P' else 1 if code_s=='S' else 2)) % len(STAFF_LIST)]
                 st_cells += f"<td style='border:1px solid #dcdcdc; padding:0; text-align:center; font-size:8px; font-weight:bold; width:27px; height:24px;'>{st_val}</td>"
@@ -303,7 +296,7 @@ def page_download():
     for d in range(1, 32):
         hdr_days += f"<td colspan='3' style='border:1px solid #b0c4de; background:#005580; color:white; font-weight:bold; text-align:center; font-size:9px; height:20px;'>{d}</td>"
         hdr_shifts += "<td style='border:1px solid #b0c4de; background:#cfe3f7; color:#111; text-align:center; font-size:7.5px; font-weight:bold; width:27px; height:18px;'>P</td><td style='border:1px solid #b0c4de; background:#cfe3f7; color:#111; text-align:center; font-size:7.5px; font-weight:bold; width:27px; height:18px;'>S</td><td style='border:1px solid #b0c4de; background:#cfe3f7; color:#111; text-align:center; font-size:7.5px; font-weight:bold; width:27px; height:18px;'>M</td>"
-    hdr_days += "<td rowspan='2' style='border:1px solid #b0c4de; background:#005580; color:white; font-weight:bold; text-align:center; font-size:9px; width:110px;'>Keterangan</td>"
+    hdr_days += "<td rowspan='2' style='border:1px solid #b0c4de; background:#005580; color:white; font-weight:bold; padding:4px; font-size:9px; text-align:center; width:110px;'>Keterangan</td>"
 
     ref_rooms_data = [
         ("Operasi", "20-26", "40-60"), ("Tindakan", "20-24", "40-60"),
@@ -406,7 +399,6 @@ def page_download():
     
     components.html(print_html, height=720, scrolling=True)
 
-# SIDEBAR NAVIGATION (Sangat stabil anti-crash)
 with st.sidebar:
     st.markdown("### RADIOLOGI DEPARTMENT")
     st.caption("Monitoring Suhu & Kelembapan")
