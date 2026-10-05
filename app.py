@@ -11,7 +11,6 @@ import zlib
 
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Radiologi - Primaya Hospital", page_icon="🏥", layout="wide")
 
@@ -43,7 +42,6 @@ button[kind="primary"]{background:#005580;border-color:#005580}
 </style>
 """, unsafe_allow_html=True)
 
-# Standar Ruangan Radiologi Primaya Hospital
 ROOM_STANDARDS = {
     "CT Scan": {"temp": (18, 22), "hum": (40, 60), "ref": "Standar Alat CT"},
     "USG": {"temp": (20, 24), "hum": (40, 60), "ref": "Permenkes No. 40 Tahun 2022"},
@@ -93,17 +91,20 @@ def render_header(title):
         import base64
         with open(logo_path, "rb") as f:
             encoded = base64.b64encode(f.read()).decode()
-        logo_html = f"<img src='data:image/png;base64,{encoded}' style='height:36px; object-fit:contain; background:white; padding:4px 8px; border-radius:6px;'>"
+        # Logo dipindah ke pojok kiri atas di dalam box header
+        logo_html = f"<img src='data:image/png;base64,{encoded}' style='height:38px; object-fit:contain; background:white; padding:4px 10px; border-radius:6px; margin-right:15px;'>"
     else:
-        logo_html = "<div style='background:white;color:#005580;padding:6px 12px;border-radius:6px;font-weight:bold;'>+ PRIMAYA</div>"
+        logo_html = "<div style='background:white;color:#005580;padding:6px 12px;border-radius:6px;font-weight:bold;margin-right:15px;'>+ PRIMAYA</div>"
         
     st.markdown(f"""
     <div class='prim-header-box'>
-        <div class='prim-title'>
-            <h1>FORMULIR DIGITAL SUHU & KELEMBAPAN &ndash; RADIOLOGI</h1>
-            <p>{title}</p>
+        <div style='display:flex; align-items:center;'>
+            {logo_html}
+            <div class='prim-title'>
+                <h1>FORMULIR DIGITAL SUHU & KELEMBAPAN &ndash; RADIOLOGI</h1>
+                <p>{title}</p>
+            </div>
         </div>
-        <div>{logo_html}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -246,31 +247,76 @@ def page_input():
         """, unsafe_allow_html=True)
 
 # =====================================================================
-# 3. MENU: DOWNLOAD DATA
+# 3. MENU: DOWNLOAD DATA (FORMAT PDF / FORMULIR PRIMAYA)
 # =====================================================================
 def page_download():
-    render_header("Unduh Rekapitulasi Data Suhu Radiologi")
+    render_header("Unduh Rekapitulasi Data Suhu Format Formulir Primaya")
     
-    df = load_entries()
-    if df.empty:
-        st.info("Belum ada data tersimpan di sistem. Silakan lakukan input melalui menu Input Suhu Harian.")
-        return
-        
-    st.markdown("### Filter Data Berdasarkan Ruangan")
-    selected_filter_room = st.selectbox("Pilih Ruangan untuk Diunduh", ["Semua Ruangan"] + ROOM_LIST)
+    col_f1, col_f2 = st.columns(2)
+    selected_filter_room = col_f1.selectbox("Pilih Ruangan untuk Diunduh", ROOM_LIST)
+    t = TODAY()
+    sel_month = col_f2.selectbox("Pilih Bulan Laporan", range(1, 13), format_func=lambda x: BLN[x-1], index=t.month-1)
     
-    filtered_df = df if selected_filter_room == "Semua Ruangan" else df[df["ruang"] == selected_filter_room]
+    st.markdown(f"### Preview Format Matrik Laporan Bulanan ({selected_filter_room} - {BLN[sel_month-1]} {t.year})")
     
-    st.dataframe(filtered_df, use_container_width=True)
+    # Membangun dataframe matriks persis seperti PDF Primaya
+    days_in_month = calendar.monthrange(t.year, sel_month)[1]
+    
+    real_data = {}
+    for r in load_entries().to_dict("records"):
+        if r["ruang"] == selected_filter_room:
+            try:
+                td = dt.date.fromisoformat(r["tanggal"])
+                if td.year == t.year and td.month == sel_month:
+                    real_data[(td.day, (r["shift"] or "P")[:1])] = r
+            except Exception:
+                pass
+                
+    rnd = random.Random(zlib.crc32(selected_filter_room.encode()))
+    std = ROOM_STANDARDS[selected_filter_room]
+    t_lo, t_hi = std["temp"]
+    h_lo, h_hi = std["hum"]
+    
+    matrix_rows = {f"Suhu (°C) [{t_lo}-{t_hi}]": {}, "Kelembapan (%)": {}, "Inisial Petugas": {}}
+    
+    for d in range(1, 32):
+        if d <= days_in_month:
+            cur_date = dt.date(t.year, sel_month, d)
+            for s_code in ["P", "S", "M"]:
+                col_key = f"Tgl {d} ({s_code})"
+                if (d, s_code) in real_data:
+                    item = real_data[(d, s_code)]
+                    matrix_rows[f"Suhu (°C) [{t_lo}-{t_hi}]"][col_key] = item["suhu"]
+                    matrix_rows["Kelembapan (%)"][col_key] = item["kelembapan"]
+                    matrix_rows["Inisial Petugas"][col_key] = item["petugas"]
+                elif DUMMY() and cur_date <= t:
+                    v_t = round(rnd.uniform(t_lo, t_hi), 1)
+                    v_h = round(rnd.uniform(45, 55), 0)
+                    matrix_rows[f"Suhu (°C) [{t_lo}-{t_hi}]"][col_key] = str(v_t)
+                    matrix_rows["Kelembapan (%)"][col_key] = str(int(v_h))
+                    matrix_rows["Inisial Petugas"][col_key] = STAFF_LIST[(d + (0 if s_code=='P' else 1 if s_code=='S' else 2)) % len(STAFF_LIST)]
+                else:
+                    matrix_rows[f"Suhu (°C) [{t_lo}-{t_hi}]"][col_key] = ""
+                    matrix_rows["Kelembapan (%)"][col_key] = ""
+                    matrix_rows["Inisial Petugas"][col_key] = ""
+        else:
+            for s_code in ["P", "S", "M"]:
+                col_key = f"Tgl {d} ({s_code})"
+                matrix_rows[f"Suhu (°C) [{t_lo}-{t_hi}]"][col_key] = "-"
+                matrix_rows["Kelembapan (%)"][col_key] = "-"
+                matrix_rows["Inisial Petugas"][col_key] = "-"
+
+    matrix_df = pd.DataFrame(matrix_rows).T
+    st.dataframe(matrix_df, use_container_width=True)
     
     bio = io.BytesIO()
     with pd.ExcelWriter(bio, engine="openpyxl") as xw:
-        filtered_df.to_excel(xw, sheet_name="Rekap_Suhu_Radiologi", index=False)
+        matrix_df.to_excel(xw, sheet_name=f"Form_{selected_filter_room[:15]}")
         
     st.download_button(
-        label=f"⬇️ Download Rekap ({selected_filter_room}) Excel",
+        label=f"⬇️ Download Excel Format Formulir Resmi ({selected_filter_room})",
         data=bio.getvalue(),
-        file_name=f"rekap_suhu_radiologi_{selected_filter_room.lower().replace(' ', '_')}.xlsx",
+        file_name=f"Formulir_Suhu_{selected_filter_room.lower().replace(' ', '_')}_{BLN[sel_month-1]}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         type="primary"
     )
@@ -290,9 +336,6 @@ pg = st.navigation(pages)
 
 with st.sidebar:
     st.markdown("---")
-    logo_path = "Primaya Logo.png"
-    if os.path.exists(logo_path):
-        st.image(logo_path, use_column_width=True)
     st.markdown("<div style='background:#005580;color:#fff;border-radius:8px;padding:8px;text-align:center'><b>RADIOLOGI DEPARTMENT</b></div>", unsafe_allow_html=True)
     st.date_input("Tanggal Simulasi", value=dt.date(2026, 9, 5), key="sim_today")
     st.checkbox("Tampilkan Data Dummy", value=True, key="use_dummy", help="Mengisi otomatis data simulasi untuk keperluan demo dashboard")
