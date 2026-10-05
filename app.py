@@ -4,7 +4,6 @@ Formulir Digital Suhu & Kelembapan Departemen Radiologi - Primaya Hospital
 """
 import calendar
 import datetime as dt
-import io
 import os
 import random
 import zlib
@@ -247,21 +246,20 @@ def page_input():
         """, unsafe_allow_html=True)
 
 # =====================================================================
-# 3. MENU: DOWNLOAD DATA (FORMAT GRAFIK TITIK HITAM/MERAH & PETUGAS)
+# 3. MENU: DOWNLOAD & CETAK PDF FORMAT RESMI PRIMAYA
 # =====================================================================
 def page_download():
-    render_header("Unduh Rekapitulasi Data Format Formulir Resmi Primaya")
+    render_header("Cetak / Unduh Formulir Resmi Suhu & Kelembapan Ruangan")
     
     col_f1, col_f2 = st.columns(2)
-    selected_filter_room = col_f1.selectbox("Pilih Ruangan untuk Diunduh", ROOM_LIST)
+    selected_filter_room = col_f1.selectbox("Pilih Ruangan", ROOM_LIST)
     t = TODAY()
     sel_month = col_f2.selectbox("Pilih Bulan Laporan", range(1, 13), format_func=lambda x: BLN[x-1], index=t.month-1)
     
-    st.markdown(f"### Preview Matrik Format Formulir Fisik ({selected_filter_room} - {BLN[sel_month-1]} {t.year})")
-    st.caption("🔴 Titik Merah = Suhu di luar batas standar | ⚫ Titik Hitam = Suhu normal")
+    st.markdown("### Preview Formulir Fisik Resmi Primaya Hospital")
+    st.caption("Klik tombol di bawah untuk membuka pratinjau cetak / simpan sebagai PDF.")
     
     days_in_month = calendar.monthrange(t.year, sel_month)[1]
-    
     real_data = {}
     for r in load_entries().to_dict("records"):
         if r["ruang"] == selected_filter_room:
@@ -275,108 +273,117 @@ def page_download():
     rnd = random.Random(zlib.crc32(selected_filter_room.encode()))
     std = ROOM_STANDARDS[selected_filter_room]
     t_lo, t_hi = std["temp"]
-    h_lo, h_hi = std["hum"]
     
-    # Rentang suhu visual untuk tabel matriks (misal dari 16°C sampai 32°C)
-    temp_levels = list(range(32, 15, -1))
-    
-    matrix_data = []
-    
-    # Baris Suhu (16 sampai 32 derajat) dengan titik hitam/merah
-    for temp_val in temp_levels:
-        row_dict = {"Parameter / Suhu": f"{temp_val} °C"}
+    # Membangun HTML Cetak Persis seperti Form PDF Primaya
+    temp_rows_html = ""
+    for temp_val in range(32, 15, -1):
+        row_cells = f"<td style='border:1px solid #999; padding:2px; text-align:center; font-weight:bold; background:#eef2f7;'>{temp_val}°C</td>"
         for d in range(1, 32):
             cur_date = dt.date(t.year, sel_month, d) if d <= days_in_month else None
             for s_code in ["P", "S", "M"]:
-                col_key = f"Tgl {d} ({s_code})"
+                dot_html = ""
                 if d <= days_in_month:
                     val = None
                     if (d, s_code) in real_data:
                         val = float(real_data[(d, s_code)]["suhu"])
                     elif DUMMY() and cur_date <= t:
-                        val = round(rnd.uniform(t_lo - 0.5, t_hi + 0.5), 1)
+                        val = round(rnd.uniform(t_lo, t_hi), 1)
                         if rnd.random() < 0.05:
                             val = t_hi + 1.5
                             
                     if val is not None and round(val) == temp_val:
-                        # Tentukan titik hitam atau merah berdasarkan standar
-                        if t_lo <= val <= t_hi:
-                            row_dict[col_key] = "● (Hitam)"   # Normal
-                        else:
-                            row_dict[col_key] = "🔴 (Merah)"   # Di luar batas
-                    else:
-                        row_dict[col_key] = ""
-                else:
-                    row_dict[col_key] = "-"
-        matrix_data.append(row_dict)
+                        color = "#d64545" if not (t_lo <= val <= t_hi) else "#111"  # Merah jika abnormal, hitam jika normal
+                        dot_html = f"<div style='width:7px; height:7px; background:{color}; border-radius:50%; margin:0 auto;'></div>"
+                row_cells += f"<td style='border:1px solid #ccc; padding:2px; text-align:center; height:18px;'>{dot_html}</td>"
+        temp_rows_html += f"<tr>{row_cells}</tr>"
         
     # Baris Kelembapan
-    hum_row = {"Parameter / Suhu": "Kelembapan (%)"}
+    hum_cells = "<td style='border:1px solid #999; padding:3px; font-weight:bold; background:#eef2f7; font-size:9px;'>Kelembapan (%)</td>"
     for d in range(1, 32):
         cur_date = dt.date(t.year, sel_month, d) if d <= days_in_month else None
         for s_code in ["P", "S", "M"]:
-            col_key = f"Tgl {d} ({s_code})"
+            h_val = ""
             if d <= days_in_month:
                 if (d, s_code) in real_data:
-                    hum_row[col_key] = str(real_data[(d, s_code)]["kelembapan"])
+                    h_val = str(real_data[(d, s_code)]["kelembapan"])
                 elif DUMMY() and cur_date <= t:
-                    hum_row[col_key] = str(int(round(rnd.uniform(45, 55), 0)))
-                else:
-                    hum_row[col_key] = ""
-            else:
-                hum_row[col_key] = "-"
-    matrix_data.append(hum_row)
-    
-    # Baris Inisial Petugas per Shift (Pagi, Sore, Malam)
-    for shift_name, s_code in [("Nama (Pagi)", "P"), ("Nama (Siang)", "S"), ("Nama (Malam)", "M")]:
-        staff_row = {"Parameter / Suhu": shift_name}
+                    h_val = str(int(round(rnd.uniform(45, 55), 0)))
+            hum_cells += f"<td style='border:1px solid #ccc; padding:2px; text-align:center; font-size:8px;'>{h_val}</td>"
+            
+    # Baris Petugas Shift (Pagi, Siang/Sore, Malam)
+    staff_rows_html = ""
+    for label_s, code_s in [("Nama (Pagi)", "P"), ("Nama (Siang)", "S"), ("Nama (Malam)", "M")]:
+        st_cells = f"<td style='border:1px solid #999; padding:3px; font-weight:bold; background:#eef2f7; font-size:9px;'>{label_s}</td>"
         for d in range(1, 32):
             cur_date = dt.date(t.year, sel_month, d) if d <= days_in_month else None
             for sc in ["P", "S", "M"]:
-                col_key = f"Tgl {d} ({sc})"
-                if sc == s_code and d <= days_in_month:
-                    if (d, s_code) in real_data:
-                        staff_row[col_key] = real_data[(d, s_code)]["petugas"]
+                st_val = ""
+                if d <= days_in_month and sc == code_s:
+                    if (d, code_s) in real_data:
+                        st_val = real_data[(d, code_s)]["petugas"]
                     elif DUMMY() and cur_date <= t:
-                        staff_row[col_key] = STAFF_LIST[(d + (0 if s_code=='P' else 1 if s_code=='S' else 2)) % len(STAFF_LIST)]
-                    else:
-                        staff_row[col_key] = ""
-                else:
-                    if sc == s_code:
-                        staff_row[col_key] = ""
-                    else:
-                        # Kolom shift lain dikosongkan pada baris shift ini agar persis seperti form cetak
-                        pass
-        # Perbaikan mapping kolom shift per baris petugas
-        clean_staff_row = {"Parameter / Suhu": shift_name}
-        for d in range(1, 32):
-            for sc in ["P", "S", "M"]:
-                col_key = f"Tgl {d} ({sc})"
-                if sc == s_code and d <= days_in_month:
-                    val_st = ""
-                    if (d, s_code) in real_data:
-                        val_st = real_data[(d, s_code)]["petugas"]
-                    elif DUMMY() and dt.date(t.year, sel_month, d) <= t:
-                        val_st = STAFF_LIST[(d + (0 if s_code=='P' else 1 if s_code=='S' else 2)) % len(STAFF_LIST)]
-                    clean_staff_row[col_key] = val_st
-                else:
-                    clean_staff_row[col_key] = ""
-        matrix_data.append(clean_staff_row)
+                        st_val = STAFF_LIST[(d + (0 if code_s=='P' else 1 if code_s=='S' else 2)) % len(STAFF_LIST)]
+                st_cells += f"<td style='border:1px solid #ccc; padding:2px; text-align:center; font-size:8px; font-weight:bold;'>{st_val}</td>"
+        staff_rows_html += f"<tr>{st_cells}</tr>"
 
-    final_df = pd.DataFrame(matrix_data)
-    st.dataframe(final_df, use_container_width=True)
+    # Header tanggal 1 sampai 31
+    hdr_days = "<td rowspan='2' style='border:1px solid #999; background:#005580; color:white; font-weight:bold; padding:4px; font-size:9px;'>Tanggal</td>"
+    hdr_shifts = ""
+    for d in range(1, 32):
+        hdr_days += f"<td colspan='3' style='border:1px solid #999; background:#005580; color:white; font-weight:bold; text-align:center; font-size:9px;'>{d}</td>"
+        hdr_shifts += "<td style='border:1px solid #ccc; background:#cfe3f7; text-align:center; font-size:7px; font-weight:bold;'>P</td><td style='border:1px solid #ccc; background:#cfe3f7; text-align:center; font-size:7px; font-weight:bold;'>S</td><td style='border:1px solid #ccc; background:#cfe3f7; text-align:center; font-size:7px; font-weight:bold;'>M</td>"
+
+    print_html = f"""
+    <html>
+    <head>
+    <style>
+        body {{ font-family: Arial, sans-serif; color: #111; margin: 0; padding: 10px; }}
+        .form-container {{ width: 100%; max-width: 1100px; margin: 0 auto; border: 2px solid #005580; padding: 15px; background: #fff; }}
+        .header-top {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #005580; padding-bottom: 10px; margin-bottom: 10px; }}
+        .hospital-title {{ font-size: 20px; font-weight: bold; color: #005580; }}
+        .form-title {{ text-align: right; font-size: 14px; font-weight: bold; color: #005580; }}
+        .meta-info {{ display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 10px; font-weight: bold; }}
+        table {{ border-collapse: collapse; width: 100%; margin-bottom: 10px; }}
+        .footer-note {{ font-size: 8.5px; color: #444; line-height: 1.3; border-top: 1px solid #ccc; padding-top: 6px; }}
+        @media print {{
+            body {{ padding: 0; }}
+            .no-print {{ display: none; }}
+        }}
+    </style>
+    </head>
+    <body>
+    <div class="form-container">
+        <div class="header-top">
+            <div class="hospital-title">PRIMAYA HOSPITAL</div>
+            <div class="form-title">FORMULIR DIGITAL SUHU, KELEMBAPAN,<br>DAN TEKANAN RUANGAN</div>
+        </div>
+        <div class="meta-info">
+            <div>Bulan, Tahun : {BLN[sel_month-1].upper()} {t.year}</div>
+            <div>Ruang / Unit : {selected_filter_room}</div>
+        </div>
+        <table>
+            <tr>{hdr_days}</tr>
+            <tr>{hdr_shifts}</tr>
+            {temp_rows_html}
+            <tr>{hum_cells}</tr>
+            {staff_rows_html}
+        </table>
+        <div class="footer-note">
+            <b>Catatan:</b><br>
+            - P (Pagi) Pkl 08.00 Waktu Setempat, S (Sore) Pkl 14.00 Waktu Setempat, M (Malam) Pkl 21.00 Waktu Setempat.<br>
+            - Titik Hitam (●) = Suhu Normal | Titik Merah (🔴) = Suhu di luar batas standar.<br>
+            - Jika suhu dan kelembapan tidak sesuai dengan batasan normal, segera hubungi petugas maintenance.<br>
+            <b>Form/PHG/GAD-11-1/Rev.03</b>
+        </div>
+    </div>
+    <div style="text-align: center; margin-top: 15px;" class="no-print">
+        <button onclick="window.print()" style="background:#005580; color:white; border:none; padding:10px 20px; font-size:14px; font-weight:bold; border-radius:5px; cursor:pointer;">🖨 Cetak Formulir / Simpan ke PDF</button>
+    </div>
+    </body>
+    </html>
+    """
     
-    bio = io.BytesIO()
-    with pd.ExcelWriter(bio, engine="openpyxl") as xw:
-        final_df.to_excel(xw, sheet_name=f"Form_{selected_filter_room[:12]}", index=False)
-        
-    st.download_button(
-        label=f"⬇️️ Download Excel Format Formulir Resmi ({selected_filter_room})",
-        data=bio.getvalue(),
-        file_name=f"Formulir_Suhu_{selected_filter_room.lower().replace(' ', '_')}_{BLN[sel_month-1]}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        type="primary"
-    )
+    components.html(print_html, height=650, scrolling=True)
 
 # =====================================================================
 # NAVIGASI UTAMA
@@ -385,7 +392,7 @@ pages = {
     "Menu Utama": [
         st.Page(page_dashboard, title="1. Dashboard Rangkuman", icon="📊", default=True),
         st.Page(page_input, title="2. Input Suhu Harian", icon="🌡️"),
-        st.Page(page_download, title="3. Download Data", icon="🗂️"),
+        st.Page(page_download, title="3. Cetak & Unduh PDF", icon="🗂️"),
     ]
 }
 
