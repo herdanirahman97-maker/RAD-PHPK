@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 Formulir Digital Suhu & Kelembapan Departemen Radiologi - Primaya Hospital
-Versi Sempurna (Dashboard, Input, dan Cetak/Download PDF Resmi)
 """
 import calendar
 import datetime as dt
-import io
 import os
 import random
 import zlib
@@ -20,9 +18,7 @@ DATA_DIR = "data_primaya_radiologi"
 ENTRY_FILE = os.path.join(DATA_DIR, "entries.csv")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# =====================================================================
-# STYLING & BRANDING
-# =====================================================================
+# Styling & Branding
 st.markdown("""
 <style>
 .stApp{background:#f4f7fa}
@@ -45,12 +41,12 @@ button[kind="primary"]{background:#005580;border-color:#005580}
 """, unsafe_allow_html=True)
 
 ROOM_STANDARDS = {
-    "CT Scan": {"temp": (18, 22), "hum": (40, 60), "ref": "Standar Alat CT"},
-    "USG": {"temp": (20, 24), "hum": (40, 60), "ref": "Permenkes No. 40 Tahun 2022"},
-    "R.Operator": {"temp": (20, 24), "hum": (40, 60), "ref": "Permenkes No. 40 Tahun 2022"},
-    "ESWL": {"temp": (20, 24), "hum": (40, 60), "ref": "Permenkes No. 40 Tahun 2022"},
-    "Panoramik": {"temp": (20, 24), "hum": (40, 60), "ref": "Permenkes No. 40 Tahun 2022"},
-    "Radiografi Umum": {"temp": (20, 24), "hum": (40, 60), "ref": "Permenkes No. 40 Tahun 2022"}
+    "CT Scan": {"temp": (18, 22), "hum": (40, 60)},
+    "USG": {"temp": (20, 24), "hum": (40, 60)},
+    "R.Operator": {"temp": (20, 24), "hum": (40, 60)},
+    "ESWL": {"temp": (20, 24), "hum": (40, 60)},
+    "Panoramik": {"temp": (20, 24), "hum": (40, 60)},
+    "Radiografi Umum": {"temp": (20, 24), "hum": (40, 60)}
 }
 
 ROOM_LIST = list(ROOM_STANDARDS.keys())
@@ -109,12 +105,9 @@ def render_header(title):
     </div>
     """, unsafe_allow_html=True)
 
-# =====================================================================
-# 1. MENU: DASHBOARD
-# =====================================================================
+# 1. DASHBOARD
 def page_dashboard():
     render_header("Dashboard Rangkuman Pencapaian Suhu & Kelembapan")
-    
     col1, col2 = st.columns([2, 2])
     ruang = col1.selectbox("Pilih Ruangan Radiologi", ROOM_LIST)
     t = TODAY()
@@ -122,8 +115,8 @@ def page_dashboard():
     
     std = ROOM_STANDARDS[ruang]
     t_lo, t_hi = std["temp"]
-    
     days_in_month = calendar.monthrange(t.year, m_idx)[1]
+    
     real_data = {}
     for r in load_entries().to_dict("records"):
         if r["ruang"] == ruang:
@@ -135,9 +128,7 @@ def page_dashboard():
                 pass
                 
     rnd = random.Random(zlib.crc32(ruang.encode()))
-    records_evaluated = []
-    empty_slots = []
-    abnormal_slots = []
+    records_evaluated, empty_slots, abnormal_slots = [], [], []
     
     for d in range(1, days_in_month + 1):
         cur_date = dt.date(t.year, m_idx, d)
@@ -147,19 +138,15 @@ def page_dashboard():
                 val_t = float(item["suhu"])
                 is_abn = not (t_lo <= val_t <= t_hi)
                 records_evaluated.append(1)
-                if is_abn:
-                    abnormal_slots.append(f"Tanggal {d} Shift {s_code} (Suhu: {val_t}°C)")
+                if is_abn: abnormal_slots.append(f"Tanggal {d} Shift {s_code} (Suhu: {val_t}°C)")
             elif DUMMY() and cur_date <= t:
                 val_t = round(rnd.uniform(t_lo - 0.5, t_hi + 0.5), 1)
-                if rnd.random() < 0.08:
-                    val_t = t_hi + 1.5
+                if rnd.random() < 0.08: val_t = t_hi + 1.5
                 is_abn = not (t_lo <= val_t <= t_hi)
                 records_evaluated.append(1)
-                if is_abn:
-                    abnormal_slots.append(f"Tanggal {d} Shift {s_code} (Suhu: {val_t}°C)")
+                if is_abn: abnormal_slots.append(f"Tanggal {d} Shift {s_code} (Suhu: {val_t}°C)")
             else:
-                if cur_date <= t:
-                    empty_slots.append(f"Tanggal {d} Shift {s_code}")
+                if cur_date <= t: empty_slots.append(f"Tanggal {d} Shift {s_code}")
 
     total_expected = min(t.day, days_in_month) * 3 if m_idx == t.month else days_in_month * 3
     total_filled = len(records_evaluated)
@@ -175,29 +162,20 @@ def page_dashboard():
     
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown("### ⚠️ Tanggal & Shift Suhu Di Atas/Bawah Batas Standar")
+        st.markdown("### ⚠️️ Tanggal & Shift Suhu Di Atas/Bawah Batas Standar")
         if abnormal_slots:
-            for ab in abnormal_slots:
-                st.markdown(f"- 🔴 {ab} *(Target: {t_lo}&ndash;{t_hi}°C)*")
-        else:
-            st.success("Tidak ada catatan suhu di luar batas standar pada periode ini.")
-            
+            for ab in abnormal_slots: st.markdown(f"- 🔴 {ab} *(Target: {t_lo}&ndash;{t_hi}°C)*")
+        else: st.success("Tidak ada catatan suhu di luar batas standar pada periode ini.")
     with c2:
         st.markdown("### 📭 Tanggal & Shift Kosong (Belum Terisi)")
         if empty_slots:
             st.info("Berikut daftar slot waktu yang belum diinput datanya:")
             st.write(", ".join(empty_slots[:30]))
-            if len(empty_slots) > 30:
-                st.caption(f"...dan {len(empty_slots)-30} slot lainnya.")
-        else:
-            st.success("Semua jadwal pemantauan terisi lengkap!")
+        else: st.success("Semua jadwal pemantauan terisi lengkap!")
 
-# =====================================================================
-# 2. MENU: INPUT SUHU HARIAN
-# =====================================================================
+# 2. INPUT SUHU HARIAN
 def page_input():
     render_header("Formulir Input Suhu Harian Radiologi")
-    
     col1, col2 = st.columns([2, 1])
     with col1:
         ruang = st.selectbox("Pilih Ruangan Radiologi *", ROOM_LIST)
@@ -215,12 +193,9 @@ def page_input():
         
         ok_t = t_lo <= suhu <= t_hi
         ok_h = h_lo <= hum <= h_hi
-        
-        if not ok_t:
-            st.warning(f"⚠ Perhatian: Suhu {suhu}°C berada di luar rentang standar ({t_lo}&ndash;{t_hi}°C).")
+        if not ok_t: st.warning(f"⚠ Perhatian: Suhu {suhu}°C berada di luar rentang standar ({t_lo}&ndash;{t_hi}°C).")
             
         petugas = st.selectbox("Inisial Radiografer *", STAFF_LIST)
-        
         temuan, tindakan = "", ""
         if not (ok_t and ok_h):
             temuan = st.text_area("Temuan Ketidaksesuaian *")
@@ -235,7 +210,6 @@ def page_input():
                            petugas=petugas, status="Abnormal" if not ok_t else "Normal", temuan=temuan, tindakan=tindakan)
                 st.success(f"Data suhu untuk {ruang} berhasil disimpan!")
                 st.toast("Data berhasil disimpan ke sistem!", icon="✅")
-                
     with col2:
         st.markdown("""
         <div class='card'>
@@ -247,12 +221,9 @@ def page_input():
         </div>
         """, unsafe_allow_html=True)
 
-# =====================================================================
-# 3. MENU: CETAK & UNDUH PDF (LANDSCAPE SIMETRIS PRESISI PRIMAYA)
-# =====================================================================
+# 3. CETAK & UNDUH PDF
 def page_download():
     render_header("Cetak / Unduh Formulir Resmi Suhu & Kelembapan Ruangan")
-    
     col_f1, col_f2 = st.columns(2)
     selected_filter_room = col_f1.selectbox("Pilih Ruangan", ROOM_LIST)
     t = TODAY()
@@ -289,8 +260,7 @@ def page_download():
                         val = float(real_data[(d, s_code)]["suhu"])
                     elif DUMMY() and cur_date <= t:
                         val = round(rnd.uniform(t_lo, t_hi), 1)
-                        if rnd.random() < 0.05:
-                            val = t_hi + 1.5
+                        if rnd.random() < 0.05: val = t_hi + 1.5
                             
                     if val is not None and round(val) == temp_val:
                         color = "#d64545" if not (t_lo <= val <= t_hi) else "#111"
@@ -336,23 +306,15 @@ def page_download():
     hdr_days += "<td rowspan='2' style='border:1px solid #b0c4de; background:#005580; color:white; font-weight:bold; text-align:center; font-size:9px; width:110px;'>Keterangan</td>"
 
     ref_rooms_data = [
-        ("Operasi", "20-26", "40-60"),
-        ("Tindakan", "20-24", "40-60"),
-        ("Rawat inap/rawat jalan/isolasi/Bayi Normal", "22-24", "40-60"),
-        ("Teknik/Ruang Panel/Ruang Mesin RO", "22-24", "40-60"),
-        ("Teknik/Ruang Panel/Ruang Mesin RO", "22-26", "40-60"),
+        ("Operasi", "20-26", "40-60"), ("Tindakan", "20-24", "40-60"),
+        ("Rawat inap/jalan/isolasi/Bayi Normal", "22-24", "40-60"),
+        ("Teknik/Ruang Panel/Mesin RO", "22-24", "40-60"),
         ("ICU/PICU/HCU/NICU/IGD", "22-26", "40-60"),
-        ("Laboratorium/Radiologi/Kamar Jenazah/Farmasi", "20-24", "40-60"),
-        ("Mesin Lift", "20-24", "40-60"),
-        ("Dapur", "22-30", "40-60"),
-        ("IGD", "22-26", "40-60"),
-        ("Luka Bakar", "24-26", "40-60"),
-        ("CSSD - Pembersihan/Penyimpanan", "22-26", "40-50"),
-        ("CSSD - Penyimpanan Steril", "20-24", "40-60"),
-        ("Gudang Linen Bersih/Rekam Medis", "22-26", "40-60"),
-        ("Server/MCFA/Kontrol/UPS", "20-24", "40-60"),
-        ("Genset/Trafo", "35-40", "40-60"),
-        ("Angiografi/Radioterapi/Kedokteran Nuklir", "20-24", "40-60")
+        ("Laboratorium/Radiologi/Farmasi", "20-24", "40-60"),
+        ("Mesin Lift", "20-24", "40-60"), ("Dapur", "22-30", "40-60"),
+        ("IGD", "22-26", "40-60"), ("Luka Bakar", "24-26", "40-60"),
+        ("CSSD Steril", "20-24", "40-60"), ("Server/UPS", "20-24", "40-60"),
+        ("Angiografi/Radioterapi", "20-24", "40-60")
     ]
     
     ref_th = "<td style='border:1px solid #005580; background:#cfe3f7; font-weight:bold; text-align:center; font-size:8px; padding:3px;'>Ruangan/Unit</td>"
@@ -425,7 +387,7 @@ def page_download():
         </div>
 
         <div style="display: flex; justify-content: space-between; font-size: 8px; margin-top: 6px; color: #555;">
-            <div>Peraturan Menteri Kesehatan Republik Indonesia No. 40 Tahun 2022 Tentang Persyaratan Teknis Bangunan, Prasarana, dan Peralatan Kesehatan Rumah Sakit</div>
+            <div>Peraturan Menteri Kesehatan Republik Indonesia No. 40 Tahun 2022 Tentang Persyaratan Teknis Bangunan</div>
             <div><b>Form/PHG/GAD-11-1/Rev.03</b></div>
         </div>
 
@@ -444,24 +406,28 @@ def page_download():
     
     components.html(print_html, height=720, scrolling=True)
 
-# =====================================================================
-# NAVIGASI UTAMA
-# =====================================================================
-pages = {
-    "Menu Utama": [
-        st.Page(page_dashboard, title="1. Dashboard Rangkuman", icon="📊", default=True),
-        st.Page(page_input, title="2. Input Suhu Harian", icon="🌡️️"),
-        st.Page(page_download, title="3. Cetak & Unduh PDF", icon="🗂️"),
-    ]
-}
-
-pg = st.navigation(pages)
-
+# SIDEBAR NAVIGATION (Sangat stabil anti-crash)
 with st.sidebar:
+    st.markdown("### RADIOLOGI DEPARTMENT")
+    st.caption("Monitoring Suhu & Kelembapan")
     st.markdown("---")
-    st.markdown("<div style='background:#005580;color:#fff;border-radius:8px;padding:8px;text-align:center'><b>RADIOLOGI DEPARTMENT</b></div>", unsafe_allow_html=True)
+    menu = st.radio(
+        "MENU UTAMA",
+        [
+            "1. Dashboard",
+            "2. Input Suhu Harian",
+            "3. Cetak & Unduh PDF",
+        ],
+        index=0,
+    )
+    st.markdown("---")
     st.date_input("Tanggal Simulasi", value=dt.date(2026, 9, 5), key="sim_today")
-    st.checkbox("Tampilkan Data Dummy", value=True, key="use_dummy", help="Mengisi otomatis data simulasi untuk keperluan demo dashboard")
+    st.checkbox("Tampilkan Data Dummy", value=True, key="use_dummy")
     st.caption("Form/PHG/GAD-11-1/Rev.03")
 
-pg.run()
+if menu == "1. Dashboard":
+    page_dashboard()
+elif menu == "2. Input Suhu Harian":
+    page_input()
+else:
+    page_download()
