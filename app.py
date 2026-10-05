@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Formulir Digital Suhu & Kelembapan - Primaya Hospital (Versi Sederhana)
-Menu: Dashboard, Input Suhu Harian, Download Data
+Formulir Digital Suhu & Kelembapan Departemen Radiologi - Primaya Hospital
 """
 import calendar
 import datetime as dt
@@ -14,14 +13,14 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="Suhu & Kelembapan - Primaya Hospital", page_icon="🏥", layout="wide")
+st.set_page_config(page_title="Radiologi - Primaya Hospital", page_icon="🏥", layout="wide")
 
-DATA_DIR = "data_primaya_simple"
+DATA_DIR = "data_primaya_radiologi"
 ENTRY_FILE = os.path.join(DATA_DIR, "entries.csv")
 os.makedirs(DATA_DIR, exist_ok=True)
 
 # =====================================================================
-# STYLING & BRANDING
+# STYLING
 # =====================================================================
 st.markdown("""
 <style>
@@ -29,18 +28,13 @@ st.markdown("""
 .block-container{padding-top:1.2rem;max-width:100%}
 [data-testid=stSidebar]{background:#ffffff}
 button[kind="primary"]{background:#005580;border-color:#005580}
-.prim-logo{
-    display:flex; align-items:center; gap:14px; 
+.prim-header-box{
+    display:flex; align-items:center; justify-content:space-between;
     background:linear-gradient(135deg,#003358,#005580); 
     color:white; padding:16px 22px; border-radius:10px; margin-bottom:16px;
 }
-.prim-icon{
-    background:white; color:#005580; width:44px; height:44px; 
-    border-radius:8px; display:flex; align-items:center; justify-content:center; 
-    font-size:24px; font-weight:bold; flex-shrink:0;
-}
-.prim-text h1{font-size:18px; margin:0; font-weight:700;}
-.prim-text p{font-size:11px; margin:3px 0 0; opacity:.90;}
+.prim-title h1{font-size:18px; margin:0; font-weight:700;}
+.prim-title p{font-size:11px; margin:3px 0 0; opacity:.90;}
 .card{background:#fff;border-radius:8px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.08)}
 .stat-box{display:flex;gap:12px;margin-bottom:12px}
 .stat-card{flex:1;background:#fff;border-radius:8px;padding:12px 14px;box-shadow:0 1px 2px rgba(0,0,0,0.05);border-top:4px solid #005580}
@@ -49,16 +43,19 @@ button[kind="primary"]{background:#005580;border-color:#005580}
 </style>
 """, unsafe_allow_html=True)
 
+# Standar Ruangan Radiologi Primaya Hospital
 ROOM_STANDARDS = {
-    "Philips Brilliance CT (Radiologi)": {"temp": (18, 22), "hum": (40, 60)},
-    "Operasi": {"temp": (20, 26), "hum": (40, 60)},
-    "ICU / PICU / IGD": {"temp": (22, 26), "hum": (40, 60)},
-    "Laboratorium / Farmasi": {"temp": (20, 24), "hum": (40, 60)},
-    "CSSD": {"temp": (22, 26), "hum": (40, 50)}
+    "CT Scan": {"temp": (18, 22), "hum": (40, 60), "ref": "Standar Alat CT"},
+    "USG": {"temp": (20, 24), "hum": (40, 60), "ref": "Permenkes No. 40 Tahun 2022"},
+    "R.Operator": {"temp": (20, 24), "hum": (40, 60), "ref": "Permenkes No. 40 Tahun 2022"},
+    "ESWL": {"temp": (20, 24), "hum": (40, 60), "ref": "Permenkes No. 40 Tahun 2022"},
+    "Panoramik": {"temp": (20, 24), "hum": (40, 60), "ref": "Permenkes No. 40 Tahun 2022"},
+    "Radiografi Umum": {"temp": (20, 24), "hum": (40, 60), "ref": "Permenkes No. 40 Tahun 2022"}
 }
 
 ROOM_LIST = list(ROOM_STANDARDS.keys())
 SHIFTS = ["P - Pagi (08.00)", "S - Sore (14.00)", "M - Malam (21.00)"]
+STAFF_LIST = ["SL", "AG", "AY", "WT", "FF"]
 BLN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 
 ECOLS = ["id", "dibuat", "ruang", "tanggal", "shift", "suhu", "kelembapan", "petugas", "status", "temuan", "tindakan"]
@@ -90,13 +87,23 @@ def DUMMY():
     return bool(st.session_state.get("use_dummy", True))
 
 def render_header(title):
+    logo_path = "Primaya Logo.png"
+    logo_html = ""
+    if os.path.exists(logo_path):
+        import base64
+        with open(logo_path, "rb") as f:
+            encoded = base64.b64encode(f.read()).decode()
+        logo_html = f"<img src='data:image/png;base64,{encoded}' style='height:36px; object-fit:contain; background:white; padding:4px 8px; border-radius:6px;'>"
+    else:
+        logo_html = "<div style='background:white;color:#005580;padding:6px 12px;border-radius:6px;font-weight:bold;'>+ PRIMAYA</div>"
+        
     st.markdown(f"""
-    <div class='prim-logo'>
-        <div class='prim-icon'>+</div>
-        <div class='prim-text'>
-            <h1>PRIMAYA HOSPITAL</h1>
+    <div class='prim-header-box'>
+        <div class='prim-title'>
+            <h1>FORMULIR DIGITAL SUHU & KELEMBAPAN &ndash; RADIOLOGI</h1>
             <p>{title}</p>
         </div>
+        <div>{logo_html}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -107,14 +114,13 @@ def page_dashboard():
     render_header("Dashboard Rangkuman Pencapaian Suhu & Kelembapan")
     
     col1, col2 = st.columns([2, 2])
-    ruang = col1.selectbox("Pilih Ruangan", ROOM_LIST)
+    ruang = col1.selectbox("Pilih Ruangan Radiologi", ROOM_LIST)
     t = TODAY()
     m_idx = col2.selectbox("Pilih Bulan", range(1, 13), format_func=lambda x: BLN[x-1], index=t.month-1)
     
     std = ROOM_STANDARDS[ruang]
     t_lo, t_hi = std["temp"]
     
-    # Ambil data tersimpan & buat data dummy jika diaktifkan
     days_in_month = calendar.monthrange(t.year, m_idx)[1]
     real_data = {}
     for r in load_entries().to_dict("records"):
@@ -134,7 +140,6 @@ def page_dashboard():
     for d in range(1, days_in_month + 1):
         cur_date = dt.date(t.year, m_idx, d)
         for s_code in ["P", "S", "M"]:
-            slot_label = f"Tgl {d} ({s_code})"
             if (d, s_code) in real_data:
                 item = real_data[(d, s_code)]
                 val_t = float(item["suhu"])
@@ -143,9 +148,8 @@ def page_dashboard():
                 if is_abn:
                     abnormal_slots.append(f"Tanggal {d} Shift {s_code} (Suhu: {val_t}°C)")
             elif DUMMY() and cur_date <= t:
-                # Simulasi dummy data
                 val_t = round(rnd.uniform(t_lo - 0.5, t_hi + 0.5), 1)
-                if rnd.random() < 0.08: # Simulasi 8% di luar batas
+                if rnd.random() < 0.08:
                     val_t = t_hi + 1.5
                 is_abn = not (t_lo <= val_t <= t_hi)
                 records_evaluated.append(1)
@@ -159,7 +163,6 @@ def page_dashboard():
     total_filled = len(records_evaluated)
     pct = round((total_filled / total_expected) * 100) if total_expected > 0 else 0
     
-    # Tampilkan Metrics
     st.markdown(f"""
     <div class='stat-box'>
         <div class='stat-card'><div class='t'>Persentase Pengisian Data</div><div class='v'>{pct}%</div></div>
@@ -191,11 +194,11 @@ def page_dashboard():
 # 2. MENU: INPUT SUHU HARIAN
 # =====================================================================
 def page_input():
-    render_header("Formulir Input Suhu Harian")
+    render_header("Formulir Input Suhu Harian Radiologi")
     
     col1, col2 = st.columns([2, 1])
     with col1:
-        ruang = st.selectbox("Pilih Ruangan / Unit *", ROOM_LIST)
+        ruang = st.selectbox("Pilih Ruangan Radiologi *", ROOM_LIST)
         std = ROOM_STANDARDS[ruang]
         t_lo, t_hi = std["temp"]
         h_lo, h_hi = std["hum"]
@@ -214,7 +217,7 @@ def page_input():
         if not ok_t:
             st.warning(f"⚠ Perhatian: Suhu {suhu}°C berada di luar rentang standar ({t_lo}&ndash;{t_hi}°C).")
             
-        petugas = st.text_input("Inisial Petugas (contoh: AG, FF) *", value="AG")
+        petugas = st.selectbox("Inisial Radiografer *", STAFF_LIST)
         
         temuan, tindakan = "", ""
         if not (ok_t and ok_h):
@@ -223,9 +226,7 @@ def page_input():
             
         code = shift[0]
         if st.button("Simpan Data Suhu", type="primary"):
-            if not petugas.strip():
-                st.error("Inisial petugas wajib diisi.")
-            elif not ok_t and not temuan.strip():
+            if not ok_t and not temuan.strip():
                 st.error("Karena suhu di luar batas standar, kolom Temuan wajib diisi.")
             else:
                 save_entry(ruang=ruang, tanggal=tgl.isoformat(), shift=code, suhu=suhu, kelembapan=hum,
@@ -237,9 +238,10 @@ def page_input():
         st.markdown("""
         <div class='card'>
             <b>Panduan Pengisian:</b><br>
-            1. Pilih ruangan yang dipantau.<br>
+            1. Pilih ruangan Radiologi yang dipantau.<br>
             2. Masukkan angka suhu dan kelembapan aktual.<br>
-            3. Jika suhu melebihi standar Permenkes, sistem mewajibkan pengisian temuan tindakan korektif.
+            3. Pilih inisial Radiografer (SL, AG, AY, WT, FF).<br>
+            4. Jika suhu melebihi standar, sistem mewajibkan pengisian temuan tindakan korektif.
         </div>
         """, unsafe_allow_html=True)
 
@@ -247,30 +249,34 @@ def page_input():
 # 3. MENU: DOWNLOAD DATA
 # =====================================================================
 def page_download():
-    render_header("Unduh Rekapitulasi Data Suhu")
+    render_header("Unduh Rekapitulasi Data Suhu Radiologi")
     
     df = load_entries()
     if df.empty:
         st.info("Belum ada data tersimpan di sistem. Silakan lakukan input melalui menu Input Suhu Harian.")
         return
         
-    st.markdown("### Preview Data Tersimpan")
-    st.dataframe(df, use_container_width=True)
+    st.markdown("### Filter Data Berdasarkan Ruangan")
+    selected_filter_room = st.selectbox("Pilih Ruangan untuk Diunduh", ["Semua Ruangan"] + ROOM_LIST)
+    
+    filtered_df = df if selected_filter_room == "Semua Ruangan" else df[df["ruang"] == selected_filter_room]
+    
+    st.dataframe(filtered_df, use_container_width=True)
     
     bio = io.BytesIO()
     with pd.ExcelWriter(bio, engine="openpyxl") as xw:
-        df.to_excel(xw, sheet_name="Rekap_Suhu_Primaya", index=False)
+        filtered_df.to_excel(xw, sheet_name="Rekap_Suhu_Radiologi", index=False)
         
     st.download_button(
-        label="⬇️ Download Data Excel",
+        label=f"⬇️ Download Rekap ({selected_filter_room}) Excel",
         data=bio.getvalue(),
-        file_name="rekap_suhu_primaya_hospital.xlsx",
+        file_name=f"rekap_suhu_radiologi_{selected_filter_room.lower().replace(' ', '_')}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         type="primary"
     )
 
 # =====================================================================
-# NAVIGASI UTAMA (3 MENU UTAMA)
+# NAVIGASI UTAMA
 # =====================================================================
 pages = {
     "Menu Utama": [
@@ -284,7 +290,10 @@ pg = st.navigation(pages)
 
 with st.sidebar:
     st.markdown("---")
-    st.markdown("<div style='background:#005580;color:#fff;border-radius:8px;padding:12px;text-align:center'><b>+ PRIMAYA HOSPITAL</b><br><small>Monitoring Suhu Ruangan</small></div>", unsafe_allow_html=True)
+    logo_path = "Primaya Logo.png"
+    if os.path.exists(logo_path):
+        st.image(logo_path, use_column_width=True)
+    st.markdown("<div style='background:#005580;color:#fff;border-radius:8px;padding:8px;text-align:center'><b>RADIOLOGI DEPARTMENT</b></div>", unsafe_allow_html=True)
     st.date_input("Tanggal Simulasi", value=dt.date(2026, 9, 5), key="sim_today")
     st.checkbox("Tampilkan Data Dummy", value=True, key="use_dummy", help="Mengisi otomatis data simulasi untuk keperluan demo dashboard")
     st.caption("Form/PHG/GAD-11-1/Rev.03")
