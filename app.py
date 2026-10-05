@@ -82,10 +82,13 @@ def render_header(title):
     logo_path = "Primaya Logo.png"
     logo_html = ""
     if os.path.exists(logo_path):
-        import base64
-        with open(logo_path, "rb") as f:
-            encoded = base64.b64encode(f.read()).decode()
-        logo_html = f"<img src='data:image/png;base64,{encoded}' style='height:36px; object-fit:contain; background:white; padding:4px 10px; border-radius:6px; margin-right:15px;'>"
+        try:
+            import base64
+            with open(logo_path, "rb") as f:
+                encoded = base64.b64encode(f.read()).decode()
+            logo_html = f"<img src='data:image/png;base64,{encoded}' style='height:36px; object-fit:contain; background:white; padding:4px 10px; border-radius:6px; margin-right:15px;'>"
+        except Exception:
+            logo_html = "<div style='background:white;color:#005580;padding:6px 12px;border-radius:6px;font-weight:bold;margin-right:15px;'>+ PRIMAYA</div>"
     else:
         logo_html = "<div style='background:white;color:#005580;padding:6px 12px;border-radius:6px;font-weight:bold;margin-right:15px;'>+ PRIMAYA</div>"
         
@@ -284,7 +287,7 @@ def page_download():
                 st_val = ""
                 if d <= days_in_month and sc == code_s:
                     if (d, code_s) in real_data:
-                        st_val = real_data[(d, code_s] if False else real_data[(d, code_s)]['petugas']
+                        st_val = real_data[(d, code_s)]['petugas']
                     elif DUMMY() and cur_date <= t:
                         st_val = STAFF_LIST[(d + (0 if code_s=='P' else 1 if code_s=='S' else 2)) % len(STAFF_LIST)]
                 st_cells += f"<td style='border:1px solid #dcdcdc; padding:0; text-align:center; font-size:8px; font-weight:bold; width:27px; height:24px;'>{st_val}</td>"
