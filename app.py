@@ -2,9 +2,6 @@
 """
 FORMULIR DIGITAL MONITORING SUHU DAN KELEMBAPAN DEPARTEMEN RADIOLOGI PHPK 2026
 Primaya Hospital  |  Form/PHG/GAD-11-1/Rev.03
-
-Jalankan :  streamlit run app.py
-Syarat   :  pip install streamlit pandas reportlab openpyxl      (streamlit >= 1.36)
 """
 import base64
 import calendar
@@ -65,7 +62,6 @@ DEFAULT_CFG = {
 # 0. AUTO-DOWNLOAD FONT LEXEND
 # =====================================================================
 def ensure_lexend_fonts():
-    """Unduh file Lexend dari Google Fonts bila belum ada. Return (reg_ok, bold_ok)."""
     reg_ok = os.path.exists(FONT_REG)
     bold_ok = os.path.exists(FONT_BOLD)
     for path, urls in FONT_URLS.items():
@@ -161,7 +157,6 @@ def delete_entry(eid):
 
 
 def TODAY():
-    """Tanggal sistem aktual (sidebar date_input DIHAPUS)."""
     v = st.session_state.get("sim_today")
     return v if isinstance(v, dt.date) else dt.date.today()
 
@@ -249,7 +244,20 @@ U2PT = 842.0 / 2573.0
 OFF = 150.0
 BAND, GRAY, TEAL, NAVY, RED, BLACK = "#cfe2f3", "#efefef", "#1b7895", "#004e75", "#ff0000", "#000000"
 
-FONT_FAMILY_SVG = "Lexend, Helvetica, Arial, sans-serif"
+
+# >>> REVISI 4: Fungsi baca dimensi PNG untuk hitung aspect ratio
+def _png_dimensions(path):
+    """Baca width, height PNG langsung dari header (tanpa PIL). Return (w, h) atau (None, None)."""
+    try:
+        with open(path, "rb") as f:
+            head = f.read(24)
+        if len(head) < 24 or head[:8] != b"\x89PNG\r\n\x1a\n":
+            return None, None
+        w = int.from_bytes(head[16:20], "big")
+        h = int.from_bytes(head[20:24], "big")
+        return w, h
+    except Exception:
+        return None, None
 
 
 class Sheet:
@@ -275,8 +283,8 @@ class Sheet:
         for i, ln in enumerate(lines):
             self.text(x + w / 2, base + i * lh, ln, size, bold, color, "middle")
 
-    def image(self, x, y, w, h, data_b64):
-        self.ops.append(("image", x, y, w, h, data_b64))
+    def image(self, x, y, w, h, data_b64, stretch=False):
+        self.ops.append(("image", x, y, w, h, data_b64, stretch))
 
 
 X0, LABW, DAYW, KETW, RH = 5.0, 73.0, 65.0, 173.0, 14.25
@@ -315,6 +323,14 @@ def _footer_b64():
     return None
 
 
+def _fit_box(src_w, src_h, dst_w, dst_h):
+    """Hitung ukuran yang mempertahankan aspect ratio di dalam kotak dst_w x dst_h."""
+    if not src_w or not src_h:
+        return dst_w, dst_h
+    scale = min(dst_w / src_w, dst_h / src_h)
+    return src_w * scale, src_h * scale
+
+
 def build_form(ruang, y, m, data):
     std = room_std(ruang)
     lo, hi, hl, hh = std["t_lo"], std["t_hi"], std["h_lo"], std["h_hi"]
@@ -322,10 +338,16 @@ def build_form(ruang, y, m, data):
     nrow = ymax - ymin + 1
     sh = Sheet()
 
-    # ---- HEADER PDF: logo Primaya kiri atas + judul kanan atas ----
+    # >>> REVISI 4: Logo dengan aspect ratio yang benar (tidak gepeng)
     logo = _logo_b64()
-    if logo:
-        sh.image(8, 18, 120, 50, logo)
+    LOGO_BOX_W, LOGO_BOX_H = 120.0, 50.0
+    if logo and os.path.exists(LOGO_FILE):
+        src_w, src_h = _png_dimensions(LOGO_FILE)
+        fw, fh = _fit_box(src_w, src_h, LOGO_BOX_W, LOGO_BOX_H)
+        # center di dalam kotak
+        lx = 8 + (LOGO_BOX_W - fw) / 2
+        ly = 18 + (LOGO_BOX_H - fh) / 2
+        sh.image(lx, ly, fw, fh, logo, stretch=False)
     else:
         sh.text(8, 50, "PRIMAYA", 40, True, "#095475")
         sh.text(14, 68, "HOSPITAL", 11.5, True, "#095475", "start", 9.5)
@@ -333,7 +355,6 @@ def build_form(ruang, y, m, data):
     sh.text(XE, 33, "FORMULIR DIGITAL SUHU, KELEMBAPAN,", 27, True, TEAL, "end")
     sh.text(XE, 66, "DAN TEKANAN RUANGAN", 27, True, TEAL, "end")
 
-    # Info bulan/tahun & ruang
     sh.text(X0, 88, "Bulan, Tahun : {} {}".format(BLN[m - 1].upper(), y), 10.5)
     sh.text(426, 88, "Ruang : " + ruang, 10.5)
 
@@ -353,7 +374,6 @@ def build_form(ruang, y, m, data):
     sh.rect(XK, Y1, KETW, 30, GRAY, BLACK, LW)
     sh.ctext(XK, Y1, KETW, 30, "Keterangan", 11)
 
-    # ---- baris suhu ----
     for r in range(nrow):
         v = ymax - r
         yy = YT + r * RH
@@ -373,7 +393,6 @@ def build_form(ruang, y, m, data):
     for x in (XD, XK):
         sh.line(x, Y1, x, y_end, BLACK, LW)
 
-    # ---- titik suhu, kelembapan, tekanan ----
     for (d, s), e in data.items():
         k = "PSM".index(s)
         cx = XD + (d - 1) * DAYW + (k + .5) * SUB
@@ -386,7 +405,6 @@ def build_form(ruang, y, m, data):
             yy, hh_ = (y_tp, 26) if e.get("tek_tanda") != "-" else (y_tm, 14)
             sh.ctext(cx - SUB / 2, yy, SUB, hh_, fnum(e["tek"]), 8.5)
 
-    # ---- nama petugas ----
     yy = y_n0
     for (lab, s), hh_ in zip([("Nama\n(Pagi)", "P"), ("Nama\n(Siang)", "S"), ("Nama\n(Malam)", "M")], nh):
         sh.rect(X0, yy, LABW, hh_, BAND, BLACK, LW)
@@ -400,7 +418,6 @@ def build_form(ruang, y, m, data):
         yy += hh_
     sh.rect(XK, y_n0, KETW, y_end - y_n0, BAND, BLACK, LW)
 
-    # ---- keterangan ----
     notes = []
     for (d, s), e in sorted(data.items()):
         if e.get("ket"):
@@ -411,7 +428,6 @@ def build_form(ruang, y, m, data):
     for i, ln in enumerate(notes):
         sh.text(XK + 4, YT + i * RH + RH / 2 + 3, ln, 8.5)
 
-    # ---- blok mengetahui ----
     xm = XD + 29 * DAYW
     sh.rect(xm, y_end, XE - xm, 158, None, "#bdbdbd", 0.8)
     sh.text((xm + XE) / 2, y_end + 38, "Mengetahui", 10.5, True, BLACK, "middle")
@@ -420,12 +436,10 @@ def build_form(ruang, y, m, data):
     sh.rect(xm, y_end + 158, XE - xm, 36, None, "#bdbdbd", 0.8)
     sh.ctext(xm, y_end + 158, XE - xm, 36, "Form/PHG/GAD-11-1/Rev.03", 11, False, "#0a4d7a")
 
-    # ---- catatan ----
     sh.text(X0, y_end + 24, "Catatan:", 10.5)
     for i, ln in enumerate(CATATAN):
         sh.text(X0, y_end + 38 + i * 13.5, ln, 10.5)
 
-    # ---- tabel acuan ----
     y_r = y_end + 82
     cw = (xm - 122.0) / 17.0
     sh.rect(X0, y_r, 117, 46, BAND, BLACK, LW)
@@ -447,31 +461,62 @@ def build_form(ruang, y, m, data):
         sh.ctext(a, y_r + 76, b - a, 36, t, 9.5)
 
     # ==================================================================
-    # >>> REVISI 1: FOOTER DIPERBESAR (dari 49 -> 90) TAPI TIDAK MELEBIHI BORDER
-    # Gambar di-scale memenuhi tinggi footer tanpa melewati batas atas/bawah.
+    # >>> REVISI 3: FOOTER — hanya perbesar sedikit, TIDAK full-width
+    # Footer navy tetap full-width (bar), tapi GAMBAR di dalamnya
+    # hanya ~55% lebar dan di-scale proporsional (tidak stretch).
     # ==================================================================
-    yf = y_r + 112          # posisi atas footer
-    footer_h = 90.0         # >>> tinggi baru (dari 49px -> 90px)
-    sh.rect(X0, yf, XE - X0, footer_h, NAVY, None, 0)
+    yf = y_r + 112
+    footer_h = 60.0                                    # >>> tinggi sedang (dari 49)
+    sh.rect(X0, yf, XE - X0, footer_h, NAVY, None, 0)  # bar navy full-width
 
     footer = _footer_b64()
-    if footer:
-        # Gambar footer dibuat lebih besar, menempel full-width, tapi tingginya dibatasi footer_h
-        sh.image(X0, yf, XE - X0, footer_h, footer)
+    if footer and os.path.exists(FOOTER_FILE):
+        # Gambar footer TIDAK full-width, hanya ~55% dengan proporsional
+        src_w, src_h = _png_dimensions(FOOTER_FILE)
+        max_w = (XE - X0) * 0.55           # max 55% lebar
+        max_h = footer_h - 6               # padding 3 atas/bawah
+        fw, fh = _fit_box(src_w, src_h, max_w, max_h)
+        fx = X0 + 6                        # sedikit inset dari kiri
+        fy = yf + (footer_h - fh) / 2
+        sh.image(fx, fy, fw, fh, footer, stretch=False)
     else:
-        sh.circle(40, yf + footer_h / 2, 10, None, "#ffffff", 1.8)
-        sh.line(30, yf + footer_h / 2, 50, yf + footer_h / 2, "#ffffff", 1.4)
-        sh.text(60, yf + footer_h / 2 + 5, "www.primayahospital.com", 15, False, "#ffffff")
+        sh.circle(X0 + 20, yf + footer_h / 2, 9, None, "#ffffff", 1.6)
+        sh.line(X0 + 12, yf + footer_h / 2, X0 + 28, yf + footer_h / 2, "#ffffff", 1.3)
+        sh.text(X0 + 36, yf + footer_h / 2 + 4, "www.primayahospital.com", 13, False, "#ffffff")
 
     sh.height = yf + footer_h
     return sh
 
 
 def sheet_to_svg(sh, width_px=1400):
+    """
+    >>> REVISI 2: Embed font Lexend langsung sebagai base64 @font-face
+    sehingga preview SVG di browser juga memakai Lexend (bukan Helvetica).
+    """
     W, H = XE + 8, sh.height + 8
-    p = ["<svg xmlns='http://www.w3.org/2000/svg' viewBox='-3 -3 {} {}' width='{}' height='{}' font-family=\"{}\">".format(
-        W, H, width_px, int(width_px * H / W), FONT_FAMILY_SVG),
-        "<rect x='-3' y='-3' width='{}' height='{}' fill='#ffffff'/>".format(W, H)]
+    font_css = ""
+    if os.path.exists(FONT_REG):
+        try:
+            with open(FONT_REG, "rb") as f:
+                reg_b64 = base64.b64encode(f.read()).decode()
+            font_css += "@font-face{{font-family:'LexendEmbed';font-style:normal;font-weight:400;src:url(data:font/ttf;base64,{}) format('truetype');}}".format(reg_b64)
+        except Exception:
+            pass
+    if os.path.exists(FONT_BOLD):
+        try:
+            with open(FONT_BOLD, "rb") as f:
+                bold_b64 = base64.b64encode(f.read()).decode()
+            font_css += "@font-face{{font-family:'LexendEmbed';font-style:normal;font-weight:700;src:url(data:font/ttf;base64,{}) format('truetype');}}".format(bold_b64)
+        except Exception:
+            pass
+
+    p = ["<svg xmlns='http://www.w3.org/2000/svg' viewBox='-3 -3 {} {}' width='{}' height='{}' font-family=\"LexendEmbed, Lexend, Helvetica, Arial, sans-serif\">".format(
+        W, H, width_px, int(width_px * H / W))]
+    # Sisipkan @font-face di dalam <defs>
+    if font_css:
+        p.append("<defs><style type='text/css'>{}</style></defs>".format(font_css))
+    p.append("<rect x='-3' y='-3' width='{}' height='{}' fill='#ffffff'/>".format(W, H))
+
     for op in sh.ops:
         k = op[0]
         if k == "rect":
@@ -485,9 +530,10 @@ def sheet_to_svg(sh, width_px=1400):
             _, cx, cy, r, fill, stroke, lw = op
             p.append("<circle cx='{:.2f}' cy='{:.2f}' r='{}' fill='{}' stroke='{}' stroke-width='{}'/>".format(cx, cy, r, fill or "none", stroke or "none", lw))
         elif k == "image":
-            _, x, y, w, h, data_b64 = op
-            # preserveAspectRatio="none" -> stretch agar mengisi persis kotak
-            p.append("<image x='{:.2f}' y='{:.2f}' width='{:.2f}' height='{:.2f}' preserveAspectRatio='none' href='data:image/png;base64,{}'/>".format(x, y, w, h, data_b64))
+            _, x, y, w, h, data_b64, stretch = op
+            # stretch=True untuk footer yang ingin di-stretch; default meet
+            par = "none" if stretch else "xMidYMid meet"
+            p.append("<image x='{:.2f}' y='{:.2f}' width='{:.2f}' height='{:.2f}' preserveAspectRatio='{}' href='data:image/png;base64,{}'/>".format(x, y, w, h, par, data_b64))
         else:
             _, x, y, s, size, bold, color, anchor, spacing = op
             p.append("<text x='{:.2f}' y='{:.2f}' font-size='{}' font-weight='{}' fill='{}' text-anchor='{}'{}>{}</text>".format(
@@ -496,16 +542,15 @@ def sheet_to_svg(sh, width_px=1400):
 
 
 # =====================================================================
-# >>> REVISI 2: Perbaikan registrasi font Lexend
+# >>> REVISI 2: Registrasi font Lexend untuk PDF
 # =====================================================================
-LEXEND_FONT_REG_NAME = "Lexend"            # nama internal untuk ReportLab
+LEXEND_FONT_REG_NAME = "Lexend"
 LEXEND_FONT_BOLD_NAME = "Lexend-Bold"
 
 LEXEND_STATUS = {"reg": False, "bold": False, "tried": False, "err": ""}
 
 
 def _register_lexend(force=False):
-    """Daftarkan font Lexend ke ReportLab. Kembalikan (reg_ok, bold_ok)."""
     if LEXEND_STATUS["tried"] and not force:
         return LEXEND_STATUS["reg"], LEXEND_STATUS["bold"]
 
@@ -517,11 +562,9 @@ def _register_lexend(force=False):
     reg_ok = bold_ok = False
     err_msgs = []
 
-    # Register Regular
     if os.path.exists(FONT_REG):
         try:
             pdfmetrics.registerFont(TTFont(LEXEND_FONT_REG_NAME, FONT_REG))
-            # Verifikasi font terdaftar dengan benar
             _ = pdfmetrics.getFont(LEXEND_FONT_REG_NAME)
             reg_ok = True
         except Exception as e:
@@ -529,7 +572,6 @@ def _register_lexend(force=False):
     else:
         err_msgs.append("File Lexend-Regular.ttf tidak ditemukan.")
 
-    # Register Bold
     if os.path.exists(FONT_BOLD):
         try:
             pdfmetrics.registerFont(TTFont(LEXEND_FONT_BOLD_NAME, FONT_BOLD))
@@ -544,24 +586,6 @@ def _register_lexend(force=False):
     return reg_ok, bold_ok
 
 
-def lexend_available():
-    """Cek apakah kedua font Lexend bisa didaftarkan."""
-    r, b = _register_lexend()
-    return r and b
-
-
-def lexend_debug_info():
-    """Kembalikan string info untuk ditampilkan di UI."""
-    _register_lexend()
-    return (
-        f"File Regular : {'ADA' if os.path.exists(FONT_REG) else 'TIDAK ADA'} ({FONT_REG})\n"
-        f"File Bold    : {'ADA' if os.path.exists(FONT_BOLD) else 'TIDAK ADA'} ({FONT_BOLD})\n"
-        f"Register Reg : {'OK' if LEXEND_STATUS['reg'] else 'GAGAL'}\n"
-        f"Register Bold: {'OK' if LEXEND_STATUS['bold'] else 'GAGAL'}\n"
-        f"Error        : {LEXEND_STATUS['err'] or '(tidak ada)'}"
-    )
-
-
 def sheets_to_pdf(sheets, title="Formulir Suhu dan Kelembapan"):
     from reportlab.lib.colors import HexColor
     from reportlab.lib.pagesizes import A4, landscape
@@ -570,9 +594,8 @@ def sheets_to_pdf(sheets, title="Formulir Suhu dan Kelembapan"):
     from reportlab.lib.utils import ImageReader
 
     reg_ok, bold_ok = _register_lexend()
-    # >>> REVISI 2: Pakai Lexend untuk SEMUA teks PDF
     fn_reg = LEXEND_FONT_REG_NAME if reg_ok else "Helvetica"
-    fn_bold = LEXEND_FONT_BOLD_NAME if bold_ok else ("Helvetica-Bold")
+    fn_bold = LEXEND_FONT_BOLD_NAME if bold_ok else "Helvetica-Bold"
 
     buf = io.BytesIO()
     pw, ph = landscape(A4)
@@ -609,11 +632,12 @@ def sheets_to_pdf(sheets, title="Formulir Suhu dan Kelembapan"):
                     c.setLineWidth(max(lw * U2PT, 0.1))
                 c.circle(tx(cx), ty(cy), r * U2PT, stroke=1 if stroke else 0, fill=1 if fill else 0)
             elif k == "image":
-                _, x, y, w, h, data_b64 = op
+                _, x, y, w, h, data_b64, stretch = op
                 try:
                     img = ImageReader(io.BytesIO(base64.b64decode(data_b64)))
-                    # preserveAspectRatio=False -> stretch mengisi kotak persis
-                    c.drawImage(img, tx(x), ty(y + h), w * U2PT, h * U2PT, mask="auto", preserveAspectRatio=False)
+                    # stretch=True -> gambar meregang mengisi kotak
+                    # stretch=False -> preserveAspectRatio, gambar tidak gepeng
+                    c.drawImage(img, tx(x), ty(y + h), w * U2PT, h * U2PT, mask="auto", preserveAspectRatio=(not stretch))
                 except Exception:
                     pass
             else:
@@ -640,7 +664,7 @@ def sheets_to_pdf(sheets, title="Formulir Suhu dan Kelembapan"):
 
 
 # =====================================================================
-# 4. STYLE & KOMPONEN  (mode light saja)
+# 4. STYLE & KOMPONEN
 # =====================================================================
 st.markdown("""
 <style>
@@ -659,22 +683,22 @@ html, body, [class*="css"], .stApp, .stMarkdown, .stButton, .stTextInput,
 .block-container{padding-top:1.2rem;max-width:100%}
 button[kind="primary"]{background:#005580;border-color:#005580}
 
-/* Header hero - TANPA logo, full center */
+/* >>> REVISI 5: PERBESAR TEXT HEADER */
 .ph-hero{
   background:linear-gradient(135deg,#003358,#005580);
-  color:#fff;padding:26px 30px;border-radius:12px;margin-bottom:18px;
+  color:#fff;padding:34px 30px;border-radius:12px;margin-bottom:18px;
   text-align:center;
   box-shadow:0 3px 10px rgba(0,0,0,.08);
 }
 .ph-hero h1{
-  font-size:22px;margin:0 0 6px;font-weight:800;letter-spacing:.4px;
+  font-size:30px;margin:0 0 8px;font-weight:800;letter-spacing:.5px;line-height:1.25;
 }
 .ph-hero h2{
-  font-size:14px;margin:0;font-weight:500;opacity:.95;letter-spacing:.3px;
+  font-size:18px;margin:0;font-weight:500;opacity:.95;letter-spacing:.4px;
 }
 .ph-hero .divider{
-  display:inline-block;width:70px;height:3px;background:#ffd166;
-  margin:10px auto 10px;border-radius:2px;
+  display:inline-block;width:90px;height:4px;background:#ffd166;
+  margin:14px auto 14px;border-radius:2px;
 }
 
 .kp{display:flex;gap:12px;margin:6px 0 14px}.kc{flex:1;background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 1px 3px #0001;border-top:4px solid #005580}
@@ -686,14 +710,12 @@ button[kind="primary"]{background:#005580;border-color:#005580}
 .lg2{display:flex;gap:16px;font-size:12px;margin:8px 0}.lg2 i{display:inline-block;width:14px;height:14px;border-radius:3px;margin-right:6px;vertical-align:-3px}
 .box{background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 1px 3px #0001;margin-bottom:10px;font-size:13px;line-height:1.7}
 .hint{font-size:12px;margin:-8px 0 8px 2px}.hint.ok{color:#2e9e5b}.hint.bad{color:#d64545}
-.warn{background:#fff4e5;border-left:4px solid #f0a81c;padding:10px 14px;border-radius:6px;font-size:12.5px;margin:8px 0}
-.ok-info{background:#e8f5ec;border-left:4px solid #2e9e5b;padding:10px 14px;border-radius:6px;font-size:12.5px;margin:8px 0}
 </style>
 """, unsafe_allow_html=True)
 
 
 def header(subtitle=""):
-    """Header hero: center, TANPA logo (logo sudah dipindah ke sidebar)."""
+    """Header hero center."""
     title = "FORMULIR DIGITAL MONITORING SUHU DAN KELEMBAPAN"
     subtitle = "DEPARTEMEN RADIOLOGI PHPK 2026"
     st.markdown(
@@ -857,23 +879,7 @@ def page_input():
 def page_download():
     header()
     st.caption("Download data - formulir resmi (PDF)")
-
-    # >>> Cek font & tampilkan debug info
-    reg_ok, bold_ok = _register_lexend()
-    if reg_ok and bold_ok:
-        st.markdown(
-            "<div class='ok-info'>✅ <b>Font Lexend terpasang dengan benar.</b> "
-            "Semua teks PDF akan memakai font Lexend.</div>",
-            unsafe_allow_html=True)
-    else:
-        st.markdown(
-            "<div class='warn'>⚠️ <b>Font Lexend belum berhasil dipasang.</b><br>"
-            "Letakkan file <code>Lexend-Regular.ttf</code> dan <code>Lexend-Bold.ttf</code> di folder yang sama dengan "
-            "<code>app.py</code>. Sementara PDF akan memakai Helvetica.</div>",
-            unsafe_allow_html=True)
-        with st.expander("🔧 Info Debug Font"):
-            st.code(lexend_debug_info())
-
+    # >>> REVISI 6: Tidak ada banner info / warning font
     ruang, m, y = filter_bar("dl")
     sh = build_form(ruang, y, m, month_data(ruang, y, m, TODAY()))
     zoom = st.slider("Zoom preview (%)", 60, 200, 100, 10, key="dl_zoom")
@@ -894,7 +900,7 @@ def page_download():
                      "Tekanan": "" if e["tek"] is None else "{}{}".format(e["tek_tanda"], fnum(e["tek"])), "Petugas": e["petugas"], "Keterangan": e["ket"], "Sumber": "Input"})
     dfm = pd.DataFrame(rows)
     c3.download_button("⬇️ Download data (CSV)", dfm.to_csv(index=False).encode("utf-8-sig"), fname + ".csv", "text/csv", key="dl_csv")
-    st.caption("PDF A4 landscape, vektor. Memuat logo Primaya (kiri atas), footer Primaya (full width), tabel standar suhu & kelembapan, serta Form/PHG/GAD-11-1/Rev.03.")
+    st.caption("PDF A4 landscape, vektor. Memuat logo Primaya (kiri atas), footer Primaya, tabel standar suhu & kelembapan, serta Form/PHG/GAD-11-1/Rev.03.")
 
 
 # =====================================================================
@@ -907,25 +913,8 @@ pg = st.navigation([
 ])
 
 with st.sidebar:
-    # >>> REVISI 3: LOGO PRIMAYA di ujung kanan atas sidebar
-    if os.path.exists(LOGO_FILE):
-        with open(LOGO_FILE, "rb") as f:
-            _b64 = base64.b64encode(f.read()).decode()
-        st.markdown(
-            "<div style='display:flex;justify-content:flex-end;margin-bottom:8px'>"
-            "<img src='data:image/png;base64,{b64}' style='height:48px;background:#fff;padding:4px 8px;border-radius:6px'>"
-            "</div>".format(b64=_b64),
-            unsafe_allow_html=True)
-
-    # Kotak RADIOLOGY DEPARTMENT
-    st.markdown(
-        "<div style='background:#005580;color:#fff;border-radius:8px;padding:10px;text-align:center'>"
-        "<b>RADIOLOGY DEPARTMENT</b><br><span style='font-size:11px;opacity:.9'>PHPK 2026</span></div>",
-        unsafe_allow_html=True)
-
-    # >>> REVISI 4: HAPUS st.date_input "Tanggal sistem (hari ini)"
-    # TODAY() sekarang fallback ke dt.date.today() otomatis.
-
+    # >>> REVISI 1: HAPUS logo Primaya & tulisan RADIOLOGY DEPARTMENT PHPK 2026
+    # yang ada di paling atas sidebar.
     with st.expander("Pengaturan ruang & petugas"):
         cfg = load_cfg()
         nm = st.text_input("Nama ruang baru", key="cfg_nm")
