@@ -2,12 +2,16 @@
 """
 FORMULIR DIGITAL SUHU, KELEMBAPAN, DAN TEKANAN RUANGAN - Departemen Radiologi
 Primaya Hospital  |  Form/PHG/GAD-11-1/Rev.03
+Header: Radiology Department PHPK 2026
 
 Menu:  1. Dashboard   2. Input Suhu Harian   3. Download Data (PDF persis formulir resmi)
 Jalankan :  streamlit run app.py
 Syarat   :  pip install streamlit pandas reportlab openpyxl      (streamlit >= 1.36)
 Data     :  data_primaya/entries.csv   |   pengaturan ruang & petugas: data_primaya/config.json
-Logo     :  letakkan 'Primaya Logo.png' di folder yang sama (opsional)
+Logo     :  letakkan 'Primaya Logo.png'  di folder yang sama
+Footer   :  letakkan 'Primaya Footer.png' di folder yang sama
+Font     :  letakkan file 'Lexend-Regular.ttf' dan 'Lexend-Bold.ttf' (opsional; kalau tidak ada
+            akan fallback ke Helvetica). Bisa diunduh dari fonts.google.com/specimen/Lexend.
 """
 import base64
 import calendar
@@ -16,9 +20,7 @@ import io
 import json
 import math
 import os
-import random
 import textwrap
-import zlib
 from xml.sax.saxutils import escape
 
 import pandas as pd
@@ -31,6 +33,9 @@ DATA_DIR = "data_primaya"
 ENTRY_FILE = os.path.join(DATA_DIR, "entries.csv")
 CFG_FILE = os.path.join(DATA_DIR, "config.json")
 LOGO_FILE = "Primaya Logo.png"
+FOOTER_FILE = "Primaya Footer.png"
+FONT_REG = "Lexend-Regular.ttf"
+FONT_BOLD = "Lexend-Bold.ttf"
 os.makedirs(DATA_DIR, exist_ok=True)
 
 BLN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
@@ -38,7 +43,6 @@ SHIFT_NAME = {"P": "Pagi", "S": "Siang", "M": "Malam"}
 SHIFT_LABEL = {"P": "P - Pagi (08.00)", "S": "S - Sore (14.00)", "M": "M - Malam (21.00)"}
 SHIFT_HOUR = {"P": 8, "S": 14, "M": 21}
 
-# Standar suhu/kelembapan (tabel acuan pada formulir). Radiologi = "Laboratorium/Radiologi/Kamar Jenazah/Farmasi": 20-24 C, 40-60 %
 STD_RADIOLOGI = dict(t_lo=20.0, t_hi=24.0, h_lo=40.0, h_hi=60.0)
 DEFAULT_CFG = {
     "rooms": [dict(nama=n, tekanan=False, **STD_RADIOLOGI) for n in
@@ -122,11 +126,7 @@ def delete_entry(eid):
 
 def TODAY():
     v = st.session_state.get("sim_today")
-    return v if isinstance(v, dt.date) else dt.date(2026, 9, 30)
-
-
-def DUMMY():
-    return bool(st.session_state.get("use_dummy", True))
+    return v if isinstance(v, dt.date) else dt.date.today()
 
 
 def fnum(v):
@@ -134,10 +134,9 @@ def fnum(v):
 
 
 # =====================================================================
-# 2. DATA BULANAN + ANALISA
+# 2. DATA BULANAN + ANALISA  (tanpa dummy)
 # =====================================================================
 def slot_due(d, s, today):
-    """Slot (tanggal, shift) sudah wajib terisi?"""
     if d < today:
         return True
     if d > today:
@@ -147,36 +146,10 @@ def slot_due(d, s, today):
     return True
 
 
-def dummy_entry(ruang, y, m, d, s, std):
-    """Data simulasi yang konsisten (seed tetap). None = slot dibiarkan kosong."""
-    r = random.Random(zlib.crc32("{}|{}|{}|{}|{}".format(ruang, y, m, d, s).encode()))
-    if r.random() < 0.06:
-        return None
-    x = r.random()
-    if x < 0.10:
-        t = std["t_lo"] - r.choice([0.4, 0.9, 1.4, 2.1])
-    elif x < 0.14:
-        t = std["t_hi"] + r.choice([0.6, 1.2, 2.0])
-    else:
-        t = r.uniform(std["t_lo"], std["t_hi"])
-    t = round(t, 1)
-    h = r.choice([40, 45, 50, 50, 55, 55, 60]) if r.random() > 0.05 else r.choice([35, 65])
-    ket = "Lapor maintenance" if not (std["t_lo"] <= t <= std["t_hi"]) else ""
-    names = load_cfg()["staff"]
-    return dict(suhu=t, hum=float(h), tek=None, tek_tanda="", petugas=names[(d + "PSM".index(s)) % len(names)], ket=ket, real=False)
-
-
-def month_data(ruang, y, m, today, dummy):
-    std = room_std(ruang)
+def month_data(ruang, y, m, today):
+    """Ambil data bulan ini dari entries.csv (tanpa simulasi)."""
     n = calendar.monthrange(y, m)[1]
     out = {}
-    if dummy:
-        for d in range(1, n + 1):
-            for s in "PSM":
-                if slot_due(dt.date(y, m, d), s, today):
-                    e = dummy_entry(ruang, y, m, d, s, std)
-                    if e:
-                        out[(d, s)] = e
     df = load_entries()
     df = df[df["ruang"] == ruang]
     for r in df.to_dict("records"):
@@ -197,9 +170,9 @@ def classify(v, lo, hi):
     return "ok" if lo <= v <= hi else ("high" if v > hi else "low")
 
 
-def analyze(ruang, y, m, today, dummy):
+def analyze(ruang, y, m, today):
     std = room_std(ruang)
-    data = month_data(ruang, y, m, today, dummy)
+    data = month_data(ruang, y, m, today)
     n = calendar.monthrange(y, m)[1]
     slots, empty_by_day = {}, {}
     high, low, hum_bad = [], [], []
@@ -235,12 +208,15 @@ def analyze(ruang, y, m, today, dummy):
 
 
 # =====================================================================
-# 3. GAMBAR FORMULIR  (satu gambar -> preview SVG + PDF identik)
-#    Satuan = piksel PDF asli @220dpi (formulir resmi), skala ke A4 landscape.
+# 3. GAMBAR FORMULIR
 # =====================================================================
 U2PT = 842.0 / 2573.0
 OFF = 150.0
 BAND, GRAY, TEAL, NAVY, RED, BLACK = "#cfe2f3", "#efefef", "#1b7895", "#004e75", "#ff0000", "#000000"
+
+# Font family Lexend
+FONT_FAMILY_CSS = "Lexend, 'Helvetica Neue', Helvetica, Arial, sans-serif"
+FONT_FAMILY_SVG = "Lexend, Helvetica, Arial, sans-serif"
 
 
 class Sheet:
@@ -266,6 +242,9 @@ class Sheet:
         for i, ln in enumerate(lines):
             self.text(x + w / 2, base + i * lh, ln, size, bold, color, "middle")
 
+    def image(self, x, y, w, h, data_b64):
+        self.ops.append(("image", x, y, w, h, data_b64))
+
 
 X0, LABW, DAYW, KETW, RH = 5.0, 73.0, 65.0, 173.0, 14.25
 SUB = DAYW / 3
@@ -289,21 +268,46 @@ CATATAN = ["- P (Pagi) Pkl 08.00 Waktu Setempat, S (Sore) Pkl 14.00 Waktu Setemp
            "- Jika suhu, kelembaban dan tekanan tidak sesuai dengan batasan normal, segera hubungi petugas maintenance"]
 
 
+def _logo_b64():
+    if os.path.exists(LOGO_FILE):
+        with open(LOGO_FILE, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    return None
+
+
+def _footer_b64():
+    if os.path.exists(FOOTER_FILE):
+        with open(FOOTER_FILE, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    return None
+
+
 def build_form(ruang, y, m, data):
     std = room_std(ruang)
     lo, hi, hl, hh = std["t_lo"], std["t_hi"], std["h_lo"], std["h_hi"]
     ymin, ymax = min(16, int(math.floor(lo)) - 4), max(32, int(math.ceil(hi)) + 8)
     nrow = ymax - ymin + 1
     sh = Sheet()
-    # ---- kepala
-    sh.text(8, 50, "PRIMAYA", 40, True, "#095475")
-    sh.text(14, 68, "HOSPITAL", 11.5, True, "#095475", "start", 9.5)
+
+    # ---- HEADER: logo Primaya di ujung kiri ----
+    logo = _logo_b64()
+    if logo:
+        # Logo di ujung kiri header
+        sh.image(8, 18, 120, 50, logo)
+    else:
+        sh.text(8, 50, "PRIMAYA", 40, True, "#095475")
+        sh.text(14, 68, "HOSPITAL", 11.5, True, "#095475", "start", 9.5)
+
+    # Judul formulir (kanan atas)
     sh.text(XE, 33, "FORMULIR DIGITAL SUHU, KELEMBAPAN,", 27, True, TEAL, "end")
     sh.text(XE, 66, "DAN TEKANAN RUANGAN", 27, True, TEAL, "end")
-    sh.text(X0, 88, "Bulan, Tahun : {} {}".format(BLN[m - 1].upper(), y), 10.5)
+    # Header Radiology Department PHPK 2026
+    sh.text(X0, 88, "Radiology Department  |  PHPK 2026", 10.5, True, TEAL)
     sh.text(426, 88, "Ruang : " + ruang, 10.5)
-    # ---- header tabel
-    Y1, Y2, YT = 91.0, 106.0, 121.0
+    sh.text(X0, 100, "Bulan, Tahun : {} {}".format(BLN[m - 1].upper(), y), 10.5)
+
+    # ---- header tabel ----
+    Y1, Y2, YT = 103.0, 118.0, 133.0
     sh.rect(X0, Y1, LABW, 15, None, BLACK, LW)
     sh.ctext(X0, Y1, LABW, 15, "Tanggal", 10.5)
     sh.rect(X0, Y2, LABW, 15, None, BLACK, LW)
@@ -317,7 +321,8 @@ def build_form(ruang, y, m, data):
             sh.ctext(x + k * SUB, Y2, SUB, 15, c, 10)
     sh.rect(XK, Y1, KETW, 30, GRAY, BLACK, LW)
     sh.ctext(XK, Y1, KETW, 30, "Keterangan", 11)
-    # ---- baris suhu
+
+    # ---- baris suhu ----
     for r in range(nrow):
         v = ymax - r
         yy = YT + r * RH
@@ -331,12 +336,13 @@ def build_form(ruang, y, m, data):
     for (yy, hh_, lab) in [(y_hum, 15, "Kelembapan"), (y_tp, 26, "Tek +"), (y_tm, 14, "Tek -")]:
         sh.rect(X0, yy, XE - X0, hh_, None, BLACK, LW)
         sh.ctext(X0, yy, LABW, hh_, lab, 10)
-    # garis vertikal sub-kolom
+
     for i in range(1, 93):
         sh.line(XD + i * SUB, YT, XD + i * SUB, y_n0, BLACK, LW)
     for x in (XD, XK):
         sh.line(x, Y1, x, y_end, BLACK, LW)
-    # ---- titik suhu, kelembapan, tekanan
+
+    # ---- titik suhu, kelembapan, tekanan ----
     for (d, s), e in data.items():
         k = "PSM".index(s)
         cx = XD + (d - 1) * DAYW + (k + .5) * SUB
@@ -348,10 +354,11 @@ def build_form(ruang, y, m, data):
         if e.get("tek") is not None:
             yy, hh_ = (y_tp, 26) if e.get("tek_tanda") != "-" else (y_tm, 14)
             sh.ctext(cx - SUB / 2, yy, SUB, hh_, fnum(e["tek"]), 8.5)
-    # ---- nama petugas (merge per hari)
+
+    # ---- nama petugas ----
     yy = y_n0
     for (lab, s), hh_ in zip([("Nama\n(Pagi)", "P"), ("Nama\n(Siang)", "S"), ("Nama\n(Malam)", "M")], nh):
-        sh.rect(X0, yy, LABW, hh_, GRAY if False else BAND, BLACK, LW)
+        sh.rect(X0, yy, LABW, hh_, BAND, BLACK, LW)
         sh.ctext(X0, yy, LABW, hh_, lab, 9.5)
         for d in range(1, 32):
             x = XD + (d - 1) * DAYW
@@ -361,8 +368,8 @@ def build_form(ruang, y, m, data):
                 sh.ctext(x, yy, DAYW, hh_, e["petugas"], 11)
         yy += hh_
     sh.rect(XK, y_n0, KETW, y_end - y_n0, BAND, BLACK, LW)
-    sh.rect(XK, YT + nrow * RH - nrow * RH, KETW, 0, None, None, 0)
-    # ---- keterangan (catatan temuan per tanggal/shift)
+
+    # ---- keterangan ----
     notes = []
     for (d, s), e in sorted(data.items()):
         if e.get("ket"):
@@ -372,7 +379,8 @@ def build_form(ruang, y, m, data):
         notes = notes[:maxl - 1] + ["... (selengkapnya di data)"]
     for i, ln in enumerate(notes):
         sh.text(XK + 4, YT + i * RH + RH / 2 + 3, ln, 8.5)
-    # ---- blok mengetahui + nomor form
+
+    # ---- blok mengetahui ----
     xm = XD + 29 * DAYW
     sh.rect(xm, y_end, XE - xm, 158, None, "#bdbdbd", 0.8)
     sh.text((xm + XE) / 2, y_end + 38, "Mengetahui", 10.5, True, BLACK, "middle")
@@ -380,11 +388,13 @@ def build_form(ruang, y, m, data):
     sh.text((xm + XE) / 2, y_end + 151, "(" + "." * 62 + ")", 10, True, BLACK, "middle")
     sh.rect(xm, y_end + 158, XE - xm, 36, None, "#bdbdbd", 0.8)
     sh.ctext(xm, y_end + 158, XE - xm, 36, "Form/PHG/GAD-11-1/Rev.03", 11, False, "#0a4d7a")
-    # ---- catatan
+
+    # ---- catatan ----
     sh.text(X0, y_end + 24, "Catatan:", 10.5)
     for i, ln in enumerate(CATATAN):
         sh.text(X0, y_end + 38 + i * 13.5, ln, 10.5)
-    # ---- tabel acuan standar
+
+    # ---- tabel acuan ----
     y_r = y_end + 82
     cw = (xm - 122.0) / 17.0
     sh.rect(X0, y_r, 117, 46, BAND, BLACK, LW)
@@ -404,25 +414,34 @@ def build_form(ruang, y, m, data):
     for (a, b, t) in REF_SRC:
         sh.rect(a, y_r + 76, b - a, 36, None, "#9e9e9e", 0.8)
         sh.ctext(a, y_r + 76, b - a, 36, t, 9.5)
-    # ---- footer
+
+    # ---- FOOTER: gambar Primaya Footer di kiri bawah ----
     yf = y_r + 112
-    sh.rect(X0, yf, XE - X0, 49, NAVY, None, 0)
-    sh.circle(40, yf + 25, 8, None, "#ffffff", 1.6)
-    sh.line(32, yf + 25, 48, yf + 25, "#ffffff", 1.2)
-    sh.text(55, yf + 31, "www.primayahospital.com", 13, False, "#ffffff")
+    footer_h = 49
+    sh.rect(X0, yf, XE - X0, footer_h, NAVY, None, 0)
+    footer = _footer_b64()
+    if footer:
+        # Footer image di kiri bawah (dalam area navy)
+        sh.image(X0, yf, 250, footer_h, footer)
+    else:
+        sh.circle(40, yf + 25, 8, None, "#ffffff", 1.6)
+        sh.line(32, yf + 25, 48, yf + 25, "#ffffff", 1.2)
+        sh.text(55, yf + 31, "www.primayahospital.com", 13, False, "#ffffff")
     for i, ch in enumerate("fot"):
         x = 272 + i * 20
         sh.rect(x, yf + 15, 16, 16, None, "#ffffff", 1.4)
         sh.text(x + 8, yf + 28, ch, 12, True, "#ffffff", "middle")
     sh.text(336, yf + 31, "primayahospital", 13, False, "#ffffff")
-    sh.height = yf + 49
+
+    sh.height = yf + footer_h
     return sh
 
 
 def sheet_to_svg(sh, width_px=1400):
     W, H = XE + 8, sh.height + 8
-    p = ["<svg xmlns='http://www.w3.org/2000/svg' viewBox='-3 -3 {} {}' width='{}' height='{}' font-family='Helvetica, Arial, sans-serif'>".format(
-        W, H, width_px, int(width_px * H / W)), "<rect x='-3' y='-3' width='{}' height='{}' fill='#ffffff'/>".format(W, H)]
+    p = ["<svg xmlns='http://www.w3.org/2000/svg' viewBox='-3 -3 {} {}' width='{}' height='{}' font-family=\"{}\">".format(
+        W, H, width_px, int(width_px * H / W), FONT_FAMILY_SVG),
+        "<rect x='-3' y='-3' width='{}' height='{}' fill='#ffffff'/>".format(W, H)]
     for op in sh.ops:
         k = op[0]
         if k == "rect":
@@ -435,6 +454,9 @@ def sheet_to_svg(sh, width_px=1400):
         elif k == "circle":
             _, cx, cy, r, fill, stroke, lw = op
             p.append("<circle cx='{:.2f}' cy='{:.2f}' r='{}' fill='{}' stroke='{}' stroke-width='{}'/>".format(cx, cy, r, fill or "none", stroke or "none", lw))
+        elif k == "image":
+            _, x, y, w, h, data_b64 = op
+            p.append("<image x='{:.2f}' y='{:.2f}' width='{:.2f}' height='{:.2f}' preserveAspectRatio='xMidYMid meet' href='data:image/png;base64,{}'/>".format(x, y, w, h, data_b64))
         else:
             _, x, y, s, size, bold, color, anchor, spacing = op
             p.append("<text x='{:.2f}' y='{:.2f}' font-size='{}' font-weight='{}' fill='{}' text-anchor='{}'{}>{}</text>".format(
@@ -442,11 +464,37 @@ def sheet_to_svg(sh, width_px=1400):
     return "".join(p) + "</svg>"
 
 
+def _register_lexend():
+    """Daftarkan font Lexend ke reportlab kalau file .ttf tersedia."""
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    reg_ok = bold_ok = False
+    try:
+        if os.path.exists(FONT_REG):
+            pdfmetrics.registerFont(TTFont("Lexend", FONT_REG))
+            reg_ok = True
+    except Exception:
+        reg_ok = False
+    try:
+        if os.path.exists(FONT_BOLD):
+            pdfmetrics.registerFont(TTFont("Lexend-Bold", FONT_BOLD))
+            bold_ok = True
+    except Exception:
+        bold_ok = False
+    return reg_ok, bold_ok
+
+
 def sheets_to_pdf(sheets, title="Formulir Suhu dan Kelembapan"):
     from reportlab.lib.colors import HexColor
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.pdfbase.pdfmetrics import stringWidth
     from reportlab.pdfgen.canvas import Canvas
+    from reportlab.lib.utils import ImageReader
+
+    reg_ok, bold_ok = _register_lexend()
+    fn_reg = "Lexend" if reg_ok else "Helvetica"
+    fn_bold = "Lexend-Bold" if bold_ok else ("Lexend" if reg_ok else "Helvetica-Bold")
+
     buf = io.BytesIO()
     pw, ph = landscape(A4)
     c = Canvas(buf, pagesize=(pw, ph))
@@ -454,6 +502,7 @@ def sheets_to_pdf(sheets, title="Formulir Suhu dan Kelembapan"):
     c.setAuthor("Primaya Hospital - Departemen Radiologi")
     tx = lambda x: (x + OFF) * U2PT
     ty = lambda y: ph - (y + OFF) * U2PT
+
     for sh in sheets:
         for op in sh.ops:
             k = op[0]
@@ -480,9 +529,16 @@ def sheets_to_pdf(sheets, title="Formulir Suhu dan Kelembapan"):
                     c.setStrokeColor(HexColor(stroke))
                     c.setLineWidth(max(lw * U2PT, 0.1))
                 c.circle(tx(cx), ty(cy), r * U2PT, stroke=1 if stroke else 0, fill=1 if fill else 0)
+            elif k == "image":
+                _, x, y, w, h, data_b64 = op
+                try:
+                    img = ImageReader(io.BytesIO(base64.b64decode(data_b64)))
+                    c.drawImage(img, tx(x), ty(y + h), w * U2PT, h * U2PT, mask="auto", preserveAspectRatio=True, anchor="sw")
+                except Exception:
+                    pass
             else:
                 _, x, y, s, size, bold, color, anchor, spacing = op
-                fn = "Helvetica-Bold" if bold else "Helvetica"
+                fn = fn_bold if bold else fn_reg
                 fs = size * U2PT
                 c.setFillColor(HexColor(color))
                 c.setFont(fn, fs)
@@ -508,13 +564,23 @@ def sheets_to_pdf(sheets, title="Formulir Suhu dan Kelembapan"):
 # =====================================================================
 st.markdown("""
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap');
+
+html, body, [class*="css"], .stApp, .stMarkdown, .stButton, .stTextInput,
+.stSelectbox, .stDateInput, .stNumberInput, .stRadio, .stCheckbox, .stDataFrame,
+[data-testid="stSidebar"], [data-testid="stHeader"] {
+    font-family: 'Lexend', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+}
 .stApp{background:#f4f7fa}
 .block-container{padding-top:1.2rem;max-width:100%}
 [data-testid=stSidebar]{background:#ffffff}
 button[kind="primary"]{background:#005580;border-color:#005580}
 .ph{display:flex;align-items:center;background:linear-gradient(135deg,#003358,#005580);color:#fff;padding:16px 22px;border-radius:10px;margin-bottom:16px}
 .ph .lg{background:#fff;color:#005580;padding:6px 14px;border-radius:6px;font-weight:800;margin-right:16px;letter-spacing:1px}
-.ph h1{font-size:18px;margin:0;font-weight:700}.ph p{font-size:12px;margin:3px 0 0;opacity:.92}
+.ph .lgimg{height:42px;background:#fff;padding:4px 10px;border-radius:6px;margin-right:16px}
+.ph h1{font-size:18px;margin:0;font-weight:700}
+.ph p{font-size:12px;margin:3px 0 0;opacity:.92}
+.ph .badge{display:inline-block;background:#ffd166;color:#003358;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;margin-top:6px}
 .kp{display:flex;gap:12px;margin:6px 0 14px}.kc{flex:1;background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 1px 3px #0001;border-top:4px solid #005580}
 .kc .t{font-size:12px;color:#667}.kc .v{font-size:28px;font-weight:700;margin:2px 0;color:#111}.kc .s{font-size:11px;color:#778}
 .cal{border-collapse:collapse;font-size:11px}.cal td,.cal th{border:1px solid #fff;text-align:center;min-width:26px;height:24px;padding:0 2px}
@@ -529,11 +595,15 @@ button[kind="primary"]{background:#005580;border-color:#005580}
 
 
 def header(title):
-    logo = "<div class='lg'>+ PRIMAYA</div>"
     if os.path.exists(LOGO_FILE):
         with open(LOGO_FILE, "rb") as f:
-            logo = "<img src='data:image/png;base64,{}' style='height:36px;background:#fff;padding:4px 10px;border-radius:6px;margin-right:16px'>".format(base64.b64encode(f.read()).decode())
-    st.markdown("<div class='ph'>{}<div><h1>FORMULIR DIGITAL SUHU, KELEMBAPAN, DAN TEKANAN RUANGAN</h1><p>{}</p></div></div>".format(logo, title), unsafe_allow_html=True)
+            logo = "<img class='lgimg' src='data:image/png;base64,{}'>".format(base64.b64encode(f.read()).decode())
+    else:
+        logo = "<div class='lg'>+ PRIMAYA</div>"
+    st.markdown(
+        "<div class='ph'>{}<div><h1>FORMULIR DIGITAL SUHU, KELEMBAPAN, DAN TEKANAN RUANGAN</h1>"
+        "<p>{}</p><span class='badge'>Radiology Department &nbsp;|&nbsp; PHPK 2026</span></div></div>".format(logo, title),
+        unsafe_allow_html=True)
 
 
 def filter_bar(prefix):
@@ -556,10 +626,10 @@ def days_text(days):
 def page_dashboard():
     header("1. Dashboard - rangkuman pencapaian suhu & kelembapan")
     ruang, m, y = filter_bar("db")
-    an = analyze(ruang, y, m, TODAY(), DUMMY())
+    an = analyze(ruang, y, m, TODAY())
     std = an["std"]
     if an["due"] == 0:
-        st.info("Belum ada slot pengukuran yang jatuh tempo pada bulan ini (lihat 'Tanggal simulasi' di sidebar).")
+        st.info("Belum ada slot pengukuran yang jatuh tempo pada bulan ini.")
     st.markdown("""
     <div class='kp'>
       <div class='kc'><div class='t'>Persentase pengisian</div><div class='v'>{pf:.0f}%</div><div class='s'>{f} dari {d} slot terisi (P/S/M)</div></div>
@@ -570,7 +640,6 @@ def page_dashboard():
     </div>""".format(pf=an["pct_fill"], f=an["filled"], d=an["due"], lo=std["t_lo"], hi=std["t_hi"], po=an["pct_ok"], o=an["ok"],
                      hi_n=len(an["high"]), lo_n=len(an["low"]), e=an["n_empty"], fe=len(an["full_empty"])), unsafe_allow_html=True)
 
-    # kalender P/S/M
     head = "<tr><th></th>" + "".join("<th>{}</th>".format(d) for d in range(1, an["n"] + 1)) + "</tr>"
     body = ""
     for s in "PSM":
@@ -618,7 +687,7 @@ def page_dashboard():
     st.markdown("**Rekap semua ruangan - {} {}**".format(BLN[m - 1], y))
     rows = []
     for rn in room_names():
-        a = analyze(rn, y, m, TODAY(), DUMMY())
+        a = analyze(rn, y, m, TODAY())
         rows.append({"Ruangan": rn, "% Pengisian": round(a["pct_fill"]), "% Suhu dalam batas": round(a["pct_ok"]), "Suhu di atas batas": len(a["high"]),
                      "Suhu di bawah batas": len(a["low"]), "Slot kosong": a["n_empty"], "Tanggal kosong total": days_text(a["full_empty"])})
     st.dataframe(pd.DataFrame(rows), hide_index=True)
@@ -687,7 +756,7 @@ def page_input():
 def page_download():
     header("3. Download data - formulir resmi (PDF)")
     ruang, m, y = filter_bar("dl")
-    sh = build_form(ruang, y, m, month_data(ruang, y, m, TODAY(), DUMMY()))
+    sh = build_form(ruang, y, m, month_data(ruang, y, m, TODAY()))
     zoom = st.slider("Zoom preview (%)", 60, 200, 100, 10, key="dl_zoom")
     wpx = int(1400 * zoom / 100)
     svg = sheet_to_svg(sh, wpx)
@@ -696,17 +765,17 @@ def page_download():
     c1, c2, c3 = st.columns(3)
     try:
         c1.download_button("⬇️ Download PDF (ruangan ini)", sheets_to_pdf([sh], "Formulir Suhu dan Kelembapan - " + ruang), fname + ".pdf", "application/pdf", key="dl_pdf")
-        allsh = [build_form(rn, y, m, month_data(rn, y, m, TODAY(), DUMMY())) for rn in room_names()]
+        allsh = [build_form(rn, y, m, month_data(rn, y, m, TODAY())) for rn in room_names()]
         c2.download_button("⬇️ Download PDF (semua ruangan)", sheets_to_pdf(allsh, "Formulir Suhu dan Kelembapan - Semua Ruangan"), "Form_Suhu_Kelembapan_SEMUA_{}_{:02d}.pdf".format(y, m), "application/pdf", key="dl_pdf_all")
     except ImportError:
         st.error("Library reportlab belum terpasang. Jalankan:  pip install reportlab")
     rows = []
-    for (d, s), e in sorted(month_data(ruang, y, m, TODAY(), DUMMY()).items()):
+    for (d, s), e in sorted(month_data(ruang, y, m, TODAY()).items()):
         rows.append({"Ruang": ruang, "Tanggal": dt.date(y, m, d).isoformat(), "Shift": SHIFT_NAME[s], "Suhu (°C)": e["suhu"], "Kelembapan (%)": e["hum"],
-                     "Tekanan": "" if e["tek"] is None else "{}{}".format(e["tek_tanda"], fnum(e["tek"])), "Petugas": e["petugas"], "Keterangan": e["ket"], "Sumber": "Input" if e["real"] else "Simulasi"})
+                     "Tekanan": "" if e["tek"] is None else "{}{}".format(e["tek_tanda"], fnum(e["tek"])), "Petugas": e["petugas"], "Keterangan": e["ket"], "Sumber": "Input"})
     dfm = pd.DataFrame(rows)
     c3.download_button("⬇️ Download data (CSV)", dfm.to_csv(index=False).encode("utf-8-sig"), fname + ".csv", "text/csv", key="dl_csv")
-    st.caption("PDF dibuat dari gambar yang sama dengan preview di atas (ukuran A4 landscape, vektor - bisa di-zoom/cetak tajam). Halaman memuat tabel standar suhu & kelembapan serta Form/PHG/GAD-11-1/Rev.03.")
+    st.caption("PDF dibuat dari gambar yang sama dengan preview di atas (ukuran A4 landscape, vektor - bisa di-zoom/cetak tajam). Halaman memuat logo Primaya, footer Primaya, tabel standar suhu & kelembapan, serta Form/PHG/GAD-11-1/Rev.03.")
 
 
 # =====================================================================
@@ -720,9 +789,9 @@ pg = st.navigation([
 
 with st.sidebar:
     st.markdown("---")
-    st.markdown("<div style='background:#005580;color:#fff;border-radius:8px;padding:8px;text-align:center'><b>RADIOLOGI DEPARTMENT</b></div>", unsafe_allow_html=True)
-    st.date_input("Tanggal simulasi (hari ini)", value=dt.date(2026, 9, 30), key="sim_today")
-    st.checkbox("Tampilkan data simulasi (demo)", value=True, key="use_dummy", help="Matikan agar dashboard & PDF hanya memuat data yang benar-benar diinput.")
+    st.markdown("<div style='background:#005580;color:#fff;border-radius:8px;padding:8px;text-align:center'><b>RADIOLOGY DEPARTMENT</b><br><span style='font-size:11px;opacity:.9'>PHPK 2026</span></div>", unsafe_allow_html=True)
+    st.date_input("Tanggal sistem (hari ini)", value=dt.date.today(), key="sim_today",
+                  help="Tanggal acuan untuk menentukan slot pengukuran yang sudah jatuh tempo.")
     with st.expander("Pengaturan ruang & petugas"):
         cfg = load_cfg()
         nm = st.text_input("Nama ruang baru", key="cfg_nm")
