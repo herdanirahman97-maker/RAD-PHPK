@@ -17,22 +17,24 @@ os.makedirs(DATA_DIR, exist_ok=True)
 
 st.markdown("""
 <style>
-.stApp{background:#f4f7fa}
-.block-container{padding-top:1.2rem;max-width:100%}
-[data-testid=stSidebar]{background:#ffffff}
-button[kind="primary"]{background:#005580;border-color:#005580}
-.prim-header-box{
-    display:flex; align-items:center; justify-content:space-between;
-    background:linear-gradient(135deg,#003358,#005580); 
-    color:white; padding:16px 22px; border-radius:10px; margin-bottom:16px;
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap');
+.stApp { background: #f4f7fa; font-family: 'Lexend', sans-serif; }
+.block-container { padding-top: 1.2rem; max-width: 100%; }
+[data-testid=sidebar] { background: #ffffff; font-family: 'Lexend', sans-serif; }
+button[kind="primary"] { background: #005580; border-color: #005580; font-family: 'Lexend', sans-serif; }
+.prim-header-box {
+    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(135deg,#003358,#005580); 
+    color: white; padding: 16px 22px; border-radius: 10px; margin-bottom: 16px;
+    font-family: 'Lexend', sans-serif;
 }
-.prim-title h1{font-size:18px; margin:0; font-weight:700;}
-.prim-title p{font-size:11px; margin:3px 0 0; opacity:.90;}
-.card{background:#fff;border-radius:8px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.08)}
-.stat-box{display:flex;gap:12px;margin-bottom:12px}
-.stat-card{flex:1;background:#fff;border-radius:8px;padding:12px 14px;box-shadow:0 1px 2px rgba(0,0,0,0.05);border-top:4px solid #005580}
-.stat-card .t{font-size:11px;color:#666}
-.stat-card .v{font-size:22px;font-weight:bold;margin:4px 0;color:#111}
+.prim-title h1 { font-size: 18px; margin: 0; font-weight: 700; font-family: 'Lexend', sans-serif; }
+.prim-title p { font-size: 11px; margin: 3px 0 0; opacity: .90; font-family: 'Lexend', sans-serif; }
+.card { background: #fff; border-radius: 8px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); font-family: 'Lexend', sans-serif; }
+.stat-box { display: flex; gap: 12px; margin-bottom: 12px; }
+.stat-card { flex: 1; background: #fff; border-radius: 8px; padding: 12px 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border-top: 4px solid #005580; font-family: 'Lexend', sans-serif; }
+.stat-card .t { font-size: 11px; color: #666; font-family: 'Lexend', sans-serif; }
+.stat-card .v { font-size: 22px; font-weight: bold; margin: 4px 0; color: #111; font-family: 'Lexend', sans-serif; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -78,19 +80,20 @@ def TODAY():
 def DUMMY():
     return bool(st.session_state.get("use_dummy", True))
 
-def render_header(title):
+def get_logo_base64():
     logo_path = "Primaya Logo.png"
-    logo_html = ""
     if os.path.exists(logo_path):
         try:
             import base64
             with open(logo_path, "rb") as f:
-                encoded = base64.b64encode(f.read()).decode()
-            logo_html = f"<img src='data:image/png;base64,{encoded}' style='height:36px; object-fit:contain; background:white; padding:4px 10px; border-radius:6px; margin-right:15px;'>"
+                return base64.b64encode(f.read()).decode()
         except Exception:
-            logo_html = "<div style='background:white;color:#005580;padding:6px 12px;border-radius:6px;font-weight:bold;margin-right:15px;'>+ PRIMAYA</div>"
-    else:
-        logo_html = "<div style='background:white;color:#005580;padding:6px 12px;border-radius:6px;font-weight:bold;margin-right:15px;'>+ PRIMAYA</div>"
+            pass
+    return None
+
+def render_header(title):
+    encoded = get_logo_base64()
+    logo_html = f"<img src='data:image/png;base64,{encoded}' style='height:36px; object-fit:contain; background:white; padding:4px 10px; border-radius:6px; margin-right:15px;'>" if encoded else "<div style='background:white;color:#005580;padding:6px 12px;border-radius:6px;font-weight:bold;margin-right:15px;'>+ PRIMAYA</div>"
         
     st.markdown(f"""
     <div class='prim-header-box'>
@@ -225,8 +228,8 @@ def page_download():
     t = TODAY()
     sel_month = col_f2.selectbox("Pilih Bulan Laporan", range(1, 13), format_func=lambda x: MONTHS[x-1], index=t.month-1)
     
-    st.markdown("### Preview Formulir Fisik Resmi Primaya Hospital (Landscape)")
-    st.caption("Tabel diatur landscape penuh dengan grid kotak simetris dan bagian bawah identik dengan form asli.")
+    st.markdown("### Preview Formulir Fisik Resmi Primaya Hospital (Landscape & Scrollable)")
+    st.caption("Tabel dilengkapi horizontal scroll dengan lebar sel diperbesar agar titik dan angka kelembapan termuat sempurna.")
     
     days_in_month = calendar.monthrange(t.year, sel_month)[1]
     real_data = {}
@@ -245,7 +248,7 @@ def page_download():
     
     temp_rows_html = ""
     for temp_val in range(32, 17, -1):
-        row_cells = f"<td style='border:1px solid #b0c4de; padding:0; text-align:center; font-weight:bold; background:#eef5fc; width:95px; height:23px; font-size:10px;'>{temp_val}°C</td>"
+        row_cells = f"<td style='border:1px solid #b0c4de; padding:4px; text-align:center; font-weight:bold; background:#eef5fc; width:110px; height:26px; font-size:11px; white-space:nowrap;'>{temp_val}°C</td>"
         for d in range(1, 32):
             cur_date = dt.date(t.year, sel_month, d) if d <= days_in_month else None
             for s_code in ["P", "S", "M"]:
@@ -260,12 +263,12 @@ def page_download():
                             
                     if val is not None and round(val) == temp_val:
                         color = "#d64545" if not (t_lo <= val <= t_hi) else "#111"
-                        dot_html = f"<div style='width:6px; height:6px; background:{color}; border-radius:50%; margin:0 auto;'></div>"
-                row_cells += f"<td style='border:1px solid #dcdcdc; padding:0; text-align:center; width:27px; height:23px;'>{dot_html}</td>"
-        row_cells += "<td style='border:1px solid #b0c4de; width:110px;'></td>"
+                        dot_html = f"<div style='width:7px; height:7px; background:{color}; border-radius:50%; margin:0 auto;'></div>"
+                row_cells += f"<td style='border:1px solid #dcdcdc; padding:2px; text-align:center; width:34px; height:26px;'>{dot_html}</td>"
+        row_cells += "<td style='border:1px solid #b0c4de; width:130px;'></td>"
         temp_rows_html += f"<tr>{row_cells}</tr>"
         
-    hum_cells = "<td style='border:1px solid #b0c4de; padding:4px; font-weight:bold; background:#eef5fc; font-size:9px; height:24px;'>Kelembapan (%)</td>"
+    hum_cells = "<td style='border:1px solid #b0c4de; padding:4px; font-weight:bold; background:#eef5fc; font-size:10px; height:28px;'>Kelembapan (%)</td>"
     for d in range(1, 32):
         cur_date = dt.date(t.year, sel_month, d) if d <= days_in_month else None
         for s_code in ["P", "S", "M"]:
@@ -275,12 +278,12 @@ def page_download():
                     h_val = str(int(float(real_data[(d, s_code)]["kelembapan"])))
                 elif DUMMY() and cur_date <= t:
                     h_val = str(int(round(rnd.uniform(45, 55), 0)))
-            hum_cells += f"<td style='border:1px solid #dcdcdc; padding:0; text-align:center; font-size:8px; width:27px; height:24px;'>{h_val}</td>"
+            hum_cells += f"<td style='border:1px solid #dcdcdc; padding:2px; text-align:center; font-size:9px; width:34px; height:28px;'>{h_val}</td>"
     hum_cells += "<td style='border:1px solid #b0c4de;'></td>"
             
     staff_rows_html = ""
     for label_s, code_s in [("Nama (Pagi)", "P"), ("Nama (Siang)", "S"), ("Nama (Malam)", "M")]:
-        st_cells = f"<td style='border:1px solid #b0c4de; padding:4px; font-weight:bold; background:#eef5fc; font-size:9px; height:24px;'>{label_s}</td>"
+        st_cells = f"<td style='border:1px solid #b0c4de; padding:4px; font-weight:bold; background:#eef5fc; font-size:10px; height:28px;'>{label_s}</td>"
         for d in range(1, 32):
             cur_date = dt.date(t.year, sel_month, d) if d <= days_in_month else None
             for sc in ["P", "S", "M"]:
@@ -290,16 +293,16 @@ def page_download():
                         st_val = real_data[(d, code_s)]['petugas']
                     elif DUMMY() and cur_date <= t:
                         st_val = STAFF_LIST[(d + (0 if code_s=='P' else 1 if code_s=='S' else 2)) % len(STAFF_LIST)]
-                st_cells += f"<td style='border:1px solid #dcdcdc; padding:0; text-align:center; font-size:8px; font-weight:bold; width:27px; height:24px;'>{st_val}</td>"
+                st_cells += f"<td style='border:1px solid #dcdcdc; padding:2px; text-align:center; font-size:9px; font-weight:bold; width:34px; height:28px;'>{st_val}</td>"
         st_cells += "<td style='border:1px solid #b0c4de;'></td>"
         staff_rows_html += f"<tr>{st_cells}</tr>"
 
-    hdr_days = "<td rowspan='2' style='border:1px solid #b0c4de; background:#005580; color:white; font-weight:bold; padding:4px; font-size:9px; text-align:center; width:95px;'>Tanggal</td>"
+    hdr_days = "<td rowspan='2' style='border:1px solid #b0c4de; background:#005580; color:white; font-weight:bold; padding:4px; font-size:10px; text-align:center; width:110px;'>Tanggal</td>"
     hdr_shifts = ""
     for d in range(1, 32):
-        hdr_days += f"<td colspan='3' style='border:1px solid #b0c4de; background:#005580; color:white; font-weight:bold; text-align:center; font-size:9px; height:20px;'>{d}</td>"
-        hdr_shifts += "<td style='border:1px solid #b0c4de; background:#cfe3f7; color:#111; text-align:center; font-size:7.5px; font-weight:bold; width:27px; height:18px;'>P</td><td style='border:1px solid #b0c4de; background:#cfe3f7; color:#111; text-align:center; font-size:7.5px; font-weight:bold; width:27px; height:18px;'>S</td><td style='border:1px solid #b0c4de; background:#cfe3f7; color:#111; text-align:center; font-size:7.5px; font-weight:bold; width:27px; height:18px;'>M</td>"
-    hdr_days += "<td rowspan='2' style='border:1px solid #b0c4de; background:#005580; color:white; font-weight:bold; padding:4px; font-size:9px; text-align:center; width:110px;'>Keterangan</td>"
+        hdr_days += f"<td colspan='3' style='border:1px solid #b0c4de; background:#005580; color:white; font-weight:bold; text-align:center; font-size:10px; height:22px;'>{d}</td>"
+        hdr_shifts += "<td style='border:1px solid #b0c4de; background:#cfe3f7; color:#111; text-align:center; font-size:8.5px; font-weight:bold; width:34px; height:20px;'>P</td><td style='border:1px solid #b0c4de; background:#cfe3f7; color:#111; text-align:center; font-size:8.5px; font-weight:bold; width:34px; height:20px;'>S</td><td style='border:1px solid #b0c4de; background:#cfe3f7; color:#111; text-align:center; font-size:8.5px; font-weight:bold; width:34px; height:20px;'>M</td>"
+    hdr_days += "<td rowspan='2' style='border:1px solid #b0c4de; background:#005580; color:white; font-weight:bold; padding:4px; font-size:10px; text-align:center; width:130px;'>Keterangan</td>"
 
     ref_rooms_data = [
         ("Operasi", "20-26", "40-60"), ("Tindakan", "20-24", "40-60"),
@@ -313,61 +316,96 @@ def page_download():
         ("Angiografi/Radioterapi", "20-24", "40-60")
     ]
     
-    ref_th = "<td style='border:1px solid #005580; background:#cfe3f7; font-weight:bold; text-align:center; font-size:8px; padding:3px;'>Ruangan/Unit</td>"
-    ref_suhu = "<td style='border:1px solid #b0c4de; background:#eef5fc; font-weight:bold; font-size:8px; padding:3px;'>Suhu (°C)</td>"
-    ref_hum = "<td style='border:1px solid #b0c4de; background:#eef5fc; font-weight:bold; font-size:8px; padding:3px;'>Kelembapan (%)</td>"
+    ref_th = "<td style='border:1px solid #005580; background:#cfe3f7; font-weight:bold; text-align:center; font-size:8.5px; padding:4px;'>Ruangan/Unit</td>"
+    ref_suhu = "<td style='border:1px solid #b0c4de; background:#eef5fc; font-weight:bold; font-size:8.5px; padding:4px;'>Suhu (°C)</td>"
+    ref_hum = "<td style='border:1px solid #b0c4de; background:#eef5fc; font-weight:bold; font-size:8.5px; padding:4px;'>Kelembapan (%)</td>"
     
     for r_name, t_val, h_val in ref_rooms_data:
-        ref_th += f"<td style='border:1px solid #b0c4de; background:#eef5fc; font-size:7.5px; text-align:center; padding:2px;'><b>{r_name}</b></td>"
-        ref_suhu += f"<td style='border:1px solid #b0c4de; font-size:7.5px; text-align:center; padding:2px;'>{t_val}</td>"
-        ref_hum += f"<td style='border:1px solid #b0c4de; font-size:7.5px; text-align:center; padding:2px;'>{h_val}</td>"
+        ref_th += f"<td style='border:1px solid #b0c4de; background:#eef5fc; font-size:8px; text-align:center; padding:3px;'><b>{r_name}</b></td>"
+        ref_suhu += f"<td style='border:1px solid #b0c4de; font-size:8px; text-align:center; padding:3px;'>{t_val}</td>"
+        ref_hum += f"<td style='border:1px solid #b0c4de; font-size:8px; text-align:center; padding:3px;'>{h_val}</td>"
+
+    encoded_logo = get_logo_base64()
+    logo_tag = f"<img src='data:image/png;base64,{encoded_logo}' style='height:38px; object-fit:contain;'>" if encoded_logo else "<div style='font-size:16px; font-weight:bold; color:#005580;'>PRIMAYA HOSPITAL</div>"
 
     print_html = f"""
     <html>
     <head>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap');
         @page {{ size: landscape; margin: 8mm; }}
-        body {{ font-family: Arial, sans-serif; color: #111; margin: 0; padding: 0; background: #fff; }}
-        .form-container {{ width: 100%; max-width: 1350px; margin: 0 auto; border: 2px solid #005580; padding: 10px; background: #fff; box-sizing: border-box; }}
-        .header-top {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #005580; padding-bottom: 6px; margin-bottom: 6px; }}
-        .hospital-title {{ font-size: 18px; font-weight: bold; color: #005580; letter-spacing: 0.5px; }}
+        body {{ font-family: 'Lexend', sans-serif; color: #111; margin: 0; padding: 0; background: #fff; }}
+        .form-container {{ width: 100%; max-width: 1450px; margin: 0 auto; border: 2px solid #005580; padding: 14px; background: #fff; box-sizing: border-box; }}
+        .header-top {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #005580; padding-bottom: 8px; margin-bottom: 8px; }}
+        .hospital-title {{ font-size: 16px; font-weight: bold; color: #005580; letter-spacing: 0.5px; }}
         .form-title {{ text-align: right; font-size: 13px; font-weight: bold; color: #005580; line-height: 1.2; }}
-        .meta-info {{ display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 6px; font-weight: bold; color: #333; }}
-        table {{ border-collapse: collapse; width: 100%; margin-bottom: 8px; table-layout: fixed; }}
-        .ref-table {{ border-collapse: collapse; width: 100%; margin-top: 8px; }}
-        .bottom-section {{ display: flex; justify-content: space-between; align-items: flex-start; margin-top: 8px; font-size: 8.5px; }}
-        .notes {{ width: 75%; line-height: 1.3; color: #333; }}
-        .signature-box {{ width: 22%; border: 1px solid #b0c4de; text-align: center; padding: 5px; height: 50px; display: flex; flex-direction: column; justify-content: space-between; font-weight: bold; font-size: 9px; }}
-        .footer-bar {{ background: #005580; color: white; padding: 6px 12px; display: flex; justify-content: space-between; align-items: center; font-size: 9px; margin-top: 8px; border-radius: 4px; }}
+        .meta-info {{ display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 8px; font-weight: bold; color: #333; }}
+        
+        /* Scrollable container styling */
+        .table-scroll-wrapper {{
+            width: 100%;
+            overflow-x: auto;
+            overflow-y: hidden;
+            margin-bottom: 10px;
+            border: 1px solid #b0c4de;
+        }}
+        .table-scroll-wrapper table {{
+            border-collapse: collapse;
+            width: max-content;
+            table-layout: fixed;
+        }}
+        
+        .ref-table-wrapper {{
+            width: 100%;
+            overflow-x: auto;
+            margin-top: 8px;
+            border: 1px solid #b0c4de;
+        }}
+        .ref-table-wrapper table {{
+            border-collapse: collapse;
+            width: max-content;
+        }}
+
+        .bottom-section {{ display: flex; justify-content: space-between; align-items: flex-start; margin-top: 10px; font-size: 9px; }}
+        .notes {{ width: 75%; line-height: 1.4; color: #333; }}
+        .signature-box {{ width: 22%; border: 1px solid #b0c4de; text-align: center; padding: 6px; height: 55px; display: flex; flex-direction: column; justify-content: space-between; font-weight: bold; font-size: 9.5px; }}
+        .footer-bar {{ background: #005580; color: white; padding: 6px 12px; display: flex; justify-content: space-between; align-items: center; font-size: 9.5px; margin-top: 10px; border-radius: 4px; }}
         @media print {{
             body {{ padding: 0; }}
             .no-print {{ display: none; }}
+            .table-scroll-wrapper {{ overflow: visible; border: none; }}
+            .ref-table-wrapper {{ overflow: visible; border: none; }}
         }}
     </style>
     </head>
     <body>
     <div class="form-container">
         <div class="header-top">
-            <div class="hospital-title">PRIMAYA HOSPITAL</div>
-            <div class="form-title">FORMULIR DIGITAL SUHU, KELEMBAPAN,<br>DAN TEKANAN RUANGAN</div>
+            <div class="hospital-title">FORMULIR DIGITAL SUHU, KELEMBAPAN, DAN TEKANAN RUANGAN</div>
+            <div>{logo_tag}</div>
         </div>
         <div class="meta-info">
             <div>Bulan, Tahun : {MONTHS[sel_month-1].upper()} {t.year}</div>
             <div>Ruang / Unit : {selected_filter_room}</div>
         </div>
-        <table>
-            <tr>{hdr_days}</tr>
-            <tr>{hdr_shifts}</tr>
-            {temp_rows_html}
-            <tr>{hum_cells}</tr>
-            {staff_rows_html}
-        </table>
         
-        <table class="ref-table">
-            <tr>{ref_th}</tr>
-            <tr>{ref_suhu}</tr>
-            <tr>{ref_hum}</tr>
-        </table>
+        <div class="table-scroll-wrapper">
+            <table>
+                <tr>{hdr_days}</tr>
+                <tr>{hdr_shifts}</tr>
+                {temp_rows_html}
+                <tr>{hum_cells}</tr>
+                {staff_rows_html}
+            </table>
+        </div>
+        
+        <div class="ref-table-wrapper">
+            <table>
+                <tr>{ref_th}</tr>
+                <tr>{ref_suhu}</tr>
+                <tr>{ref_hum}</tr>
+            </table>
+        </div>
         
         <div class="bottom-section">
             <div class="notes">
@@ -382,7 +420,7 @@ def page_download():
             </div>
         </div>
 
-        <div style="display: flex; justify-content: space-between; font-size: 8px; margin-top: 6px; color: #555;">
+        <div style="display: flex; justify-content: space-between; font-size: 8.5px; margin-top: 8px; color: #555;">
             <div>Peraturan Menteri Kesehatan Republik Indonesia No. 40 Tahun 2022 Tentang Persyaratan Teknis Bangunan</div>
             <div><b>Form/PHG/GAD-11-1/Rev.03</b></div>
         </div>
@@ -394,13 +432,13 @@ def page_download():
     </div>
     
     <div style="text-align: center; margin-top: 15px;" class="no-print">
-        <button onclick="window.print()" style="background:#005580; color:white; border:none; padding:10px 24px; font-size:14px; font-weight:bold; border-radius:5px; cursor:pointer;">🖨 Cetak Formulir Landscape / Simpan ke PDF</button>
+        <button onclick="window.print()" style="background:#005580; color:white; border:none; padding:10px 24px; font-size:14px; font-weight:bold; border-radius:5px; cursor:pointer; font-family:'Lexend',sans-serif;">🖨 Cetak Formulir Landscape / Simpan ke PDF</button>
     </div>
     </body>
     </html>
     """
     
-    components.html(print_html, height=720, scrolling=True)
+    components.html(print_html, height=750, scrolling=True)
 
 with st.sidebar:
     st.markdown("### RADIOLOGI DEPARTMENT")
