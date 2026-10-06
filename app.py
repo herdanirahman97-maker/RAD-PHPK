@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-FORMULIR DIGITAL SUHU, KELEMBAPAN, DAN TEKANAN RUANGAN - Departemen Radiologi
+FORMULIR DIGITAL MONITORING SUHU DAN KELEMBAPAN DEPARTEMEN RADIOLOGI PHPK 2026
 Primaya Hospital  |  Form/PHG/GAD-11-1/Rev.03
 
-Menu:  1. Dashboard   2. Input Suhu Harian   3. Download Data (PDF persis formulir resmi)
+Menu:  1. Dashboard   2. Input Suhu Harian   3. Download Data (PDF resmi)
 Jalankan :  streamlit run app.py
 Syarat   :  pip install streamlit pandas reportlab openpyxl      (streamlit >= 1.36)
 Data     :  data_primaya/entries.csv   |   pengaturan ruang & petugas: data_primaya/config.json
 Logo     :  letakkan 'Primaya Logo.png'  di folder yang sama
 Footer   :  letakkan 'Primaya Footer.png' di folder yang sama
-Font     :  WAJIB letakkan 'Lexend-Regular.ttf' dan 'Lexend-Bold.ttf' di folder yang sama
-            (unduh dari https://fonts.google.com/specimen/Lexend)
+Font     :  file 'Lexend-Regular.ttf' & 'Lexend-Bold.ttf' akan otomatis diunduh
+            dari Google Fonts bila belum ada.
 """
 import base64
 import calendar
@@ -20,13 +20,19 @@ import json
 import math
 import os
 import textwrap
+import urllib.request
 from xml.sax.saxutils import escape
 
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="Radiologi - Primaya Hospital", page_icon="🏥", layout="wide")
+st.set_page_config(
+    page_title="Radiologi - Primaya Hospital",
+    page_icon="🏥",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
 DATA_DIR = "data_primaya"
 ENTRY_FILE = os.path.join(DATA_DIR, "entries.csv")
@@ -36,6 +42,18 @@ FOOTER_FILE = "Primaya Footer.png"
 FONT_REG = "Lexend-Regular.ttf"
 FONT_BOLD = "Lexend-Bold.ttf"
 os.makedirs(DATA_DIR, exist_ok=True)
+
+# URL download font Lexend dari Google Fonts (repo google/fonts)
+FONT_URLS = {
+    FONT_REG: [
+        "https://github.com/google/fonts/raw/main/ofl/lexend/static/Lexend-Regular.ttf",
+        "https://raw.githubusercontent.com/google/fonts/main/ofl/lexend/static/Lexend-Regular.ttf",
+    ],
+    FONT_BOLD: [
+        "https://github.com/google/fonts/raw/main/ofl/lexend/static/Lexend-Bold.ttf",
+        "https://raw.githubusercontent.com/google/fonts/main/ofl/lexend/static/Lexend-Bold.ttf",
+    ],
+}
 
 BLN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
 SHIFT_NAME = {"P": "Pagi", "S": "Siang", "M": "Malam"}
@@ -48,6 +66,32 @@ DEFAULT_CFG = {
               ["Philips Briliance CT", "USG", "R.Operator", "ESWL", "Panoramik", "Radiografi Umum"]],
     "staff": ["SL", "AG", "AY", "WT", "FF"],
 }
+
+
+# =====================================================================
+# 0. AUTO-DOWNLOAD FONT LEXEND
+# =====================================================================
+def ensure_lexend_fonts():
+    """Unduh file Lexend dari Google Fonts bila belum ada. Return (reg_ok, bold_ok)."""
+    reg_ok = os.path.exists(FONT_REG)
+    bold_ok = os.path.exists(FONT_BOLD)
+    for path, urls in FONT_URLS.items():
+        if os.path.exists(path):
+            continue
+        for url in urls:
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(req, timeout=20) as r, open(path, "wb") as f:
+                    f.write(r.read())
+                if path == FONT_REG:
+                    reg_ok = True
+                if path == FONT_BOLD:
+                    bold_ok = True
+                break
+            except Exception:
+                continue
+    return reg_ok, bold_ok
+
 
 # =====================================================================
 # 1. PENYIMPANAN
@@ -146,7 +190,6 @@ def slot_due(d, s, today):
 
 
 def month_data(ruang, y, m, today):
-    """Ambil data bulan ini dari entries.csv (tanpa simulasi)."""
     out = {}
     df = load_entries()
     df = df[df["ruang"] == ruang]
@@ -293,13 +336,12 @@ def build_form(ruang, y, m, data):
         sh.text(8, 50, "PRIMAYA", 40, True, "#095475")
         sh.text(14, 68, "HOSPITAL", 11.5, True, "#095475", "start", 9.5)
 
+    # >>> REVISI 1: HAPUS tulisan "Radiology Department ..." di PDF (tidak ditampilkan lagi)
     # Judul formulir (kanan atas)
     sh.text(XE, 33, "FORMULIR DIGITAL SUHU, KELEMBAPAN,", 27, True, TEAL, "end")
     sh.text(XE, 66, "DAN TEKANAN RUANGAN", 27, True, TEAL, "end")
-    # >>> REVISI 1: Radiology Department PHPK 2026 di UJUNG KANAN ATAS (di atas judul)
-    sh.text(XE, 20, "Radiology Department  |  PHPK 2026", 10.5, True, TEAL, "end")
 
-    # Info bulan/tahun & ruang (kiri & tengah, di bawah logo)
+    # Info bulan/tahun & ruang
     sh.text(X0, 88, "Bulan, Tahun : {} {}".format(BLN[m - 1].upper(), y), 10.5)
     sh.text(426, 88, "Ruang : " + ruang, 10.5)
 
@@ -413,7 +455,6 @@ def build_form(ruang, y, m, data):
         sh.ctext(a, y_r + 76, b - a, 36, t, 9.5)
 
     # ---- FOOTER: hanya gambar footer Primaya di kiri bawah ----
-    # >>> REVISI 2: hapus teks "primayahospital" & ikon f/o/t. Hanya tampilkan gambar.
     yf = y_r + 112
     footer_h = 49
     sh.rect(X0, yf, XE - X0, footer_h, NAVY, None, 0)
@@ -421,7 +462,6 @@ def build_form(ruang, y, m, data):
     if footer:
         sh.image(X0, yf, 250, footer_h, footer)
     else:
-        # Fallback kalau footer image tidak ada — hanya lingkaran + url, tanpa "primayahospital"
         sh.circle(40, yf + 25, 8, None, "#ffffff", 1.6)
         sh.line(32, yf + 25, 48, yf + 25, "#ffffff", 1.2)
         sh.text(55, yf + 31, "www.primayahospital.com", 13, False, "#ffffff")
@@ -457,14 +497,18 @@ def sheet_to_svg(sh, width_px=1400):
     return "".join(p) + "</svg>"
 
 
-# >>> REVISI 3: Registrasi font Lexend untuk PDF (WAJIB ada file .ttf)
+# >>> REVISI 3: Registrasi font Lexend untuk PDF (perbaikan)
 LEXEND_STATUS = {"reg": False, "bold": False, "tried": False}
 
 
 def _register_lexend(force=False):
-    """Daftarkan font Lexend ke reportlab. Kembalikan (reg_ok, bold_ok)."""
+    """Daftarkan font Lexend ke reportlab. Auto-download kalau belum ada."""
     if LEXEND_STATUS["tried"] and not force:
         return LEXEND_STATUS["reg"], LEXEND_STATUS["bold"]
+
+    # Pastikan file font ada (auto-download)
+    ensure_lexend_fonts()
+
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
     reg_ok = bold_ok = False
@@ -485,7 +529,7 @@ def _register_lexend(force=False):
 
 
 def lexend_available():
-    """Cek cepat apakah file font ada (untuk warning di UI)."""
+    """Cek file font ada (untuk warning di UI)."""
     return os.path.exists(FONT_REG) and os.path.exists(FONT_BOLD)
 
 
@@ -497,7 +541,7 @@ def sheets_to_pdf(sheets, title="Formulir Suhu dan Kelembapan"):
     from reportlab.lib.utils import ImageReader
 
     reg_ok, bold_ok = _register_lexend()
-    # >>> REVISI 3: Pakai Lexend untuk SEMUA teks PDF
+    # >>> REVISI 3: PAKAI LEXEND untuk semua teks
     fn_reg = "Lexend" if reg_ok else "Helvetica"
     fn_bold = "Lexend-Bold" if bold_ok else ("Lexend" if reg_ok else "Helvetica-Bold")
 
@@ -566,28 +610,50 @@ def sheets_to_pdf(sheets, title="Formulir Suhu dan Kelembapan"):
 
 
 # =====================================================================
-# 4. STYLE & KOMPONEN
+# 4. STYLE & KOMPONEN  (mode light saja)
 # =====================================================================
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap');
 
+/* >>> REVISI 2: PAKSA LIGHT MODE */
+:root, html, body { color-scheme: light !important; }
 html, body, [class*="css"], .stApp, .stMarkdown, .stButton, .stTextInput,
 .stSelectbox, .stDateInput, .stNumberInput, .stRadio, .stCheckbox, .stDataFrame,
-[data-testid="stSidebar"], [data-testid="stHeader"] {
+[data-testid="stSidebar"], [data-testid="stHeader"], [data-testid="stAppViewContainer"] {
     font-family: 'Lexend', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+    color-scheme: light !important;
 }
-.stApp{background:#f4f7fa}
+.stApp{background:#f4f7fa !important;color:#111 !important}
+[data-testid=stSidebar]{background:#ffffff !important;color:#111 !important}
+[data-testid="stHeader"]{background:transparent !important}
 .block-container{padding-top:1.2rem;max-width:100%}
-[data-testid=stSidebar]{background:#ffffff}
 button[kind="primary"]{background:#005580;border-color:#005580}
-.ph{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#003358,#005580);color:#fff;padding:16px 22px;border-radius:10px;margin-bottom:16px}
-.ph .left{display:flex;align-items:center;gap:16px}
-.ph .lg{background:#fff;color:#005580;padding:6px 14px;border-radius:6px;font-weight:800;letter-spacing:1px}
-.ph .lgimg{height:42px;background:#fff;padding:4px 10px;border-radius:6px}
-.ph h1{font-size:18px;margin:0;font-weight:700}
-.ph p{font-size:12px;margin:3px 0 0;opacity:.92}
-.ph .badge{display:inline-block;background:#ffd166;color:#003358;font-size:11px;font-weight:700;padding:5px 12px;border-radius:12px;white-space:nowrap}
+
+/* >>> REVISI 4: HEADER CENTER, lebih besar dan rapi */
+.ph-hero{
+  background:linear-gradient(135deg,#003358,#005580);
+  color:#fff;padding:26px 30px;border-radius:12px;margin-bottom:18px;
+  text-align:center;position:relative;
+  box-shadow:0 3px 10px rgba(0,0,0,.08);
+}
+.ph-hero .hero-logo{
+  position:absolute;left:24px;top:50%;transform:translateY(-50%);
+  background:#fff;padding:6px 12px;border-radius:8px;height:52px;
+  display:flex;align-items:center;
+}
+.ph-hero .hero-logo img{height:42px;display:block}
+.ph-hero h1{
+  font-size:22px;margin:0 0 6px;font-weight:800;letter-spacing:.4px;
+}
+.ph-hero h2{
+  font-size:14px;margin:0;font-weight:500;opacity:.95;letter-spacing:.3px;
+}
+.ph-hero .divider{
+  display:inline-block;width:70px;height:3px;background:#ffd166;
+  margin:10px auto 10px;border-radius:2px;
+}
+
 .kp{display:flex;gap:12px;margin:6px 0 14px}.kc{flex:1;background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 1px 3px #0001;border-top:4px solid #005580}
 .kc .t{font-size:12px;color:#667}.kc .v{font-size:28px;font-weight:700;margin:2px 0;color:#111}.kc .s{font-size:11px;color:#778}
 .cal{border-collapse:collapse;font-size:11px}.cal td,.cal th{border:1px solid #fff;text-align:center;min-width:26px;height:24px;padding:0 2px}
@@ -602,20 +668,25 @@ button[kind="primary"]{background:#005580;border-color:#005580}
 """, unsafe_allow_html=True)
 
 
-def header(title):
+def header(subtitle=""):
+    """Header hero: center, logo kiri, subtitle opsional di bawah judul."""
+    logo_html = ""
     if os.path.exists(LOGO_FILE):
         with open(LOGO_FILE, "rb") as f:
-            logo = "<img class='lgimg' src='data:image/png;base64,{}'>".format(base64.b64encode(f.read()).decode())
-    else:
-        logo = "<div class='lg'>+ PRIMAYA</div>"
-    # >>> REVISI 1: Badge RADIOLOGY DEPARTMENT PHPK 2026 di ujung KANAN atas
+            b64 = base64.b64encode(f.read()).decode()
+        logo_html = "<div class='hero-logo'><img src='data:image/png;base64,{}'></div>".format(b64)
+
+    # >>> REVISI 4: judul & subtitle baru
+    title = "FORMULIR DIGITAL MONITORING SUHU DAN KELEMBAPAN"
+    subtitle = "DEPARTEMEN RADIOLOGI PHPK 2026"
+
     st.markdown(
-        "<div class='ph'>"
-        "<div class='left'>{logo}"
-        "<div><h1>FORMULIR DIGITAL SUHU, KELEMBAPAN, DAN TEKANAN RUANGAN</h1>"
-        "<p>{sub}</p></div></div>"
-        "<span class='badge'>RADIOLOGY DEPARTMENT<br>PHPK 2026</span>"
-        "</div>".format(logo=logo, sub=title),
+        "<div class='ph-hero'>"
+        "{logo}"
+        "<h1>{title}</h1>"
+        "<div class='divider'></div>"
+        "<h2>{subtitle}</h2>"
+        "</div>".format(logo=logo_html, title=title, subtitle=subtitle),
         unsafe_allow_html=True)
 
 
@@ -637,7 +708,8 @@ def days_text(days):
 # 5. HALAMAN
 # =====================================================================
 def page_dashboard():
-    header("1. Dashboard - rangkuman pencapaian suhu & kelembapan")
+    header()  # tanpa subtitle tambahan; header sudah menjelaskan
+    st.caption("Dashboard rangkuman pencapaian suhu & kelembapan")
     ruang, m, y = filter_bar("db")
     an = analyze(ruang, y, m, TODAY())
     std = an["std"]
@@ -707,7 +779,8 @@ def page_dashboard():
 
 
 def page_input():
-    header("2. Input suhu harian")
+    header()
+    st.caption("Input suhu harian")
     left, right = st.columns([2.2, 1], gap="large")
     cfg = load_cfg()
     with left:
@@ -767,12 +840,14 @@ def page_input():
 
 
 def page_download():
-    header("3. Download data - formulir resmi (PDF)")
-    # >>> REVISI 3: Warning kalau font Lexend TTF belum tersedia
-    if not lexend_available():
+    header()
+    st.caption("Download data - formulir resmi (PDF)")
+    # Cek font, auto-download kalau belum ada
+    reg_ok, bold_ok = ensure_lexend_fonts()
+    if not (reg_ok and bold_ok):
         st.markdown(
-            "<div class='warn'>⚠️ <b>Font Lexend belum terpasang untuk PDF.</b><br>"
-            "Letakkan file <code>Lexend-Regular.ttf</code> dan <code>Lexend-Bold.ttf</code> di folder yang sama dengan "
+            "<div class='warn'>⚠️ <b>Font Lexend belum berhasil diunduh otomatis.</b><br>"
+            "Letakkan manual file <code>Lexend-Regular.ttf</code> dan <code>Lexend-Bold.ttf</code> di folder yang sama dengan "
             "<code>app.py</code>. Unduh dari <a href='https://fonts.google.com/specimen/Lexend' target='_blank'>fonts.google.com/specimen/Lexend</a>. "
             "Sementara ini PDF akan memakai font default (Helvetica).</div>",
             unsafe_allow_html=True)
@@ -796,7 +871,7 @@ def page_download():
                      "Tekanan": "" if e["tek"] is None else "{}{}".format(e["tek_tanda"], fnum(e["tek"])), "Petugas": e["petugas"], "Keterangan": e["ket"], "Sumber": "Input"})
     dfm = pd.DataFrame(rows)
     c3.download_button("⬇️ Download data (CSV)", dfm.to_csv(index=False).encode("utf-8-sig"), fname + ".csv", "text/csv", key="dl_csv")
-    st.caption("PDF dibuat dengan font Lexend (A4 landscape, vektor - bisa di-zoom/cetak tajam). Halaman memuat logo Primaya (kiri atas), label Radiology Department PHPK 2026 (kanan atas), footer Primaya (kiri bawah), tabel standar suhu & kelembapan, serta Form/PHG/GAD-11-1/Rev.03.")
+    st.caption("PDF dibuat dengan font Lexend (A4 landscape, vektor - bisa di-zoom/cetak tajam). Halaman memuat logo Primaya (kiri atas), footer Primaya (kiri bawah), tabel standar suhu & kelembapan, serta Form/PHG/GAD-11-1/Rev.03.")
 
 
 # =====================================================================
@@ -810,7 +885,10 @@ pg = st.navigation([
 
 with st.sidebar:
     st.markdown("---")
-    st.markdown("<div style='background:#005580;color:#fff;border-radius:8px;padding:8px;text-align:center'><b>RADIOLOGY DEPARTMENT</b><br><span style='font-size:11px;opacity:.9'>PHPK 2026</span></div>", unsafe_allow_html=True)
+    st.markdown(
+        "<div style='background:#005580;color:#fff;border-radius:8px;padding:10px;text-align:center'>"
+        "<b>RADIOLOGY DEPARTMENT</b><br><span style='font-size:11px;opacity:.9'>PHPK 2026</span></div>",
+        unsafe_allow_html=True)
     st.date_input("Tanggal sistem (hari ini)", value=dt.date.today(), key="sim_today",
                   help="Tanggal acuan untuk menentukan slot pengukuran yang sudah jatuh tempo.")
     with st.expander("Pengaturan ruang & petugas"):
