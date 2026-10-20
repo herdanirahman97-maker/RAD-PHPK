@@ -89,22 +89,32 @@ def ensure_lexend_fonts():
 ECOLS = ["id", "dibuat", "ruang", "tanggal", "shift", "suhu", "kelembapan", "tek", "tek_tanda", "petugas", "status", "temuan", "tindakan"]
 
 
+def save_cfg(c):
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(CFG_FILE, "w", encoding="utf-8") as f:
+        json.dump(c, f, ensure_ascii=False, indent=2)
+
+
 def load_cfg():
     if os.path.exists(CFG_FILE):
         try:
             with open(CFG_FILE, encoding="utf-8") as f:
                 c = json.load(f)
             if c.get("rooms") and c.get("staff"):
+                # PATCH: Auto-update old 'Briliance CT' to 'Incisive CT' in local config.json
+                changed = False
+                for r in c["rooms"]:
+                    if "briliance" in r["nama"].lower() or "philips" in r["nama"].lower():
+                        r["nama"] = "Incisive CT"
+                        changed = True
+                
+                if changed:
+                    save_cfg(c)  # Save the fix permanently
+                    
                 return c
         except Exception:
             pass
     return json.loads(json.dumps(DEFAULT_CFG))
-
-
-def save_cfg(c):
-    os.makedirs(DATA_DIR, exist_ok=True)
-    with open(CFG_FILE, "w", encoding="utf-8") as f:
-        json.dump(c, f, ensure_ascii=False, indent=2)
 
 
 def rooms():
@@ -247,7 +257,6 @@ BAND, GRAY, TEAL, NAVY, RED, BLACK = "#cfe2f3", "#efefef", "#1b7895", "#004e75",
 
 
 def _png_dimensions(path):
-    """Baca width, height PNG langsung dari header (tanpa PIL). Return (w, h) atau (None, None)."""
     try:
         with open(path, "rb") as f:
             head = f.read(24)
@@ -693,7 +702,6 @@ button[kind="primary"]{background:#005580;border-color:#005580}
 
 
 def header(subtitle=""):
-    """Header hero center."""
     title = "FORMULIR DIGITAL MONITORING SUHU DAN KELEMBAPAN DEPARTEMEN RADIOLOGI PHPK 2026"
     subtitle = "PHT-Tracker (Pressure, Humidity, Temp)"
     st.markdown(
