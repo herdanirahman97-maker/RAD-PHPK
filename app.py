@@ -54,7 +54,7 @@ SHIFT_HOUR = {"P": 8, "S": 14, "M": 21}
 STD_RADIOLOGI = dict(t_lo=20.0, t_hi=24.0, h_lo=40.0, h_hi=60.0)
 DEFAULT_CFG = {
     "rooms": [dict(nama=n, tekanan=False, **STD_RADIOLOGI) for n in
-              ["Philips Incisive CT", "USG", "R.Operator", "ESWL", "Panoramik", "Radiografi Umum"]],
+              ["Incisive CT", "USG", "R.Operator", "ESWL", "Panoramik", "Radiografi Umum"]],
     "staff": ["SL", "AG", "AY", "WT", "FF"],
 }
 
@@ -191,7 +191,7 @@ def month_data(ruang, y, m, today):
             tek = float(r["tek"]) if r["tek"] != "" else None
             ket = r["temuan"] + (" (" + r["tindakan"] + ")" if r["tindakan"] and r["temuan"] else "")
             out[(td.day, r["shift"][:1])] = dict(suhu=float(r["suhu"]), hum=float(r["kelembapan"]), tek=tek, tek_tanda=r["tek_tanda"],
-                                                petugas=r["petugas"], ket=ket, real=True, id=r["id"])
+                                                 petugas=r["petugas"], ket=ket, real=True, id=r["id"])
         except Exception:
             continue
     return out
@@ -246,7 +246,6 @@ OFF = 150.0
 BAND, GRAY, TEAL, NAVY, RED, BLACK = "#cfe2f3", "#efefef", "#1b7895", "#004e75", "#ff0000", "#000000"
 
 
-# >>> REVISI 4: Fungsi baca dimensi PNG untuk hitung aspect ratio
 def _png_dimensions(path):
     """Baca width, height PNG langsung dari header (tanpa PIL). Return (w, h) atau (None, None)."""
     try:
@@ -325,7 +324,6 @@ def _footer_b64():
 
 
 def _fit_box(src_w, src_h, dst_w, dst_h):
-    """Hitung ukuran yang mempertahankan aspect ratio di dalam kotak dst_w x dst_h."""
     if not src_w or not src_h:
         return dst_w, dst_h
     scale = min(dst_w / src_w, dst_h / src_h)
@@ -339,13 +337,11 @@ def build_form(ruang, y, m, data):
     nrow = ymax - ymin + 1
     sh = Sheet()
 
-    # >>> REVISI 4: Logo dengan aspect ratio yang benar (tidak gepeng)
     logo = _logo_b64()
     LOGO_BOX_W, LOGO_BOX_H = 120.0, 50.0
     if logo and os.path.exists(LOGO_FILE):
         src_w, src_h = _png_dimensions(LOGO_FILE)
         fw, fh = _fit_box(src_w, src_h, LOGO_BOX_W, LOGO_BOX_H)
-        # center di dalam kotak
         lx = 8 + (LOGO_BOX_W - fw) / 2
         ly = 18 + (LOGO_BOX_H - fh) / 2
         sh.image(lx, ly, fw, fh, logo, stretch=False)
@@ -359,7 +355,6 @@ def build_form(ruang, y, m, data):
     sh.text(X0, 88, "Bulan, Tahun : {} {}".format(BLN[m - 1].upper(), y), 10.5)
     sh.text(426, 88, "Ruang : " + ruang, 10.5)
 
-    # ---- header tabel ----
     Y1, Y2, YT = 103.0, 118.0, 133.0
     sh.rect(X0, Y1, LABW, 15, None, BLACK, LW)
     sh.ctext(X0, Y1, LABW, 15, "Tanggal", 10.5)
@@ -461,23 +456,17 @@ def build_form(ruang, y, m, data):
         sh.rect(a, y_r + 76, b - a, 36, None, "#9e9e9e", 0.8)
         sh.ctext(a, y_r + 76, b - a, 36, t, 9.5)
 
-    # ==================================================================
-    # >>> REVISI 3: FOOTER — hanya perbesar sedikit, TIDAK full-width
-    # Footer navy tetap full-width (bar), tapi GAMBAR di dalamnya
-    # hanya ~55% lebar dan di-scale proporsional (tidak stretch).
-    # ==================================================================
     yf = y_r + 112
-    footer_h = 60.0                                    # >>> tinggi sedang (dari 49)
-    sh.rect(X0, yf, XE - X0, footer_h, NAVY, None, 0)  # bar navy full-width
+    footer_h = 60.0
+    sh.rect(X0, yf, XE - X0, footer_h, NAVY, None, 0)
 
     footer = _footer_b64()
     if footer and os.path.exists(FOOTER_FILE):
-        # Gambar footer TIDAK full-width, hanya ~55% dengan proporsional
         src_w, src_h = _png_dimensions(FOOTER_FILE)
-        max_w = (XE - X0) * 0.55           # max 55% lebar
-        max_h = footer_h - 6               # padding 3 atas/bawah
+        max_w = (XE - X0) * 0.55
+        max_h = footer_h - 6
         fw, fh = _fit_box(src_w, src_h, max_w, max_h)
-        fx = X0 + 6                        # sedikit inset dari kiri
+        fx = X0 + 6
         fy = yf + (footer_h - fh) / 2
         sh.image(fx, fy, fw, fh, footer, stretch=False)
     else:
@@ -490,10 +479,6 @@ def build_form(ruang, y, m, data):
 
 
 def sheet_to_svg(sh, width_px=1400):
-    """
-    >>> REVISI 2: Embed font Lexend langsung sebagai base64 @font-face
-    sehingga preview SVG di browser juga memakai Lexend (bukan Helvetica).
-    """
     W, H = XE + 8, sh.height + 8
     font_css = ""
     if os.path.exists(FONT_REG):
@@ -513,7 +498,6 @@ def sheet_to_svg(sh, width_px=1400):
 
     p = ["<svg xmlns='http://www.w3.org/2000/svg' viewBox='-3 -3 {} {}' width='{}' height='{}' font-family=\"LexendEmbed, Lexend, Helvetica, Arial, sans-serif\">".format(
         W, H, width_px, int(width_px * H / W))]
-    # Sisipkan @font-face di dalam <defs>
     if font_css:
         p.append("<defs><style type='text/css'>{}</style></defs>".format(font_css))
     p.append("<rect x='-3' y='-3' width='{}' height='{}' fill='#ffffff'/>".format(W, H))
@@ -532,7 +516,6 @@ def sheet_to_svg(sh, width_px=1400):
             p.append("<circle cx='{:.2f}' cy='{:.2f}' r='{}' fill='{}' stroke='{}' stroke-width='{}'/>".format(cx, cy, r, fill or "none", stroke or "none", lw))
         elif k == "image":
             _, x, y, w, h, data_b64, stretch = op
-            # stretch=True untuk footer yang ingin di-stretch; default meet
             par = "none" if stretch else "xMidYMid meet"
             p.append("<image x='{:.2f}' y='{:.2f}' width='{:.2f}' height='{:.2f}' preserveAspectRatio='{}' href='data:image/png;base64,{}'/>".format(x, y, w, h, par, data_b64))
         else:
@@ -542,9 +525,6 @@ def sheet_to_svg(sh, width_px=1400):
     return "".join(p) + "</svg>"
 
 
-# =====================================================================
-# >>> REVISI 2: Registrasi font Lexend untuk PDF
-# =====================================================================
 LEXEND_FONT_REG_NAME = "Lexend"
 LEXEND_FONT_BOLD_NAME = "Lexend-Bold"
 
@@ -636,8 +616,6 @@ def sheets_to_pdf(sheets, title="Formulir Suhu dan Kelembapan"):
                 _, x, y, w, h, data_b64, stretch = op
                 try:
                     img = ImageReader(io.BytesIO(base64.b64decode(data_b64)))
-                    # stretch=True -> gambar meregang mengisi kotak
-                    # stretch=False -> preserveAspectRatio, gambar tidak gepeng
                     c.drawImage(img, tx(x), ty(y + h), w * U2PT, h * U2PT, mask="auto", preserveAspectRatio=(not stretch))
                 except Exception:
                     pass
@@ -684,7 +662,6 @@ html, body, [class*="css"], .stApp, .stMarkdown, .stButton, .stTextInput,
 .block-container{padding-top:1.2rem;max-width:100%}
 button[kind="primary"]{background:#005580;border-color:#005580}
 
-/* >>> REVISI 5: PERBESAR TEXT HEADER */
 .ph-hero{
   background:linear-gradient(135deg,#003358,#005580);
   color:#fff;padding:34px 30px;border-radius:12px;margin-bottom:18px;
@@ -717,8 +694,8 @@ button[kind="primary"]{background:#005580;border-color:#005580}
 
 def header(subtitle=""):
     """Header hero center."""
-    title = "FORMULIR DIGITAL MONITORING SUHU DAN KELEMBAPAN"
-    subtitle = "DEPARTEMEN RADIOLOGI PHPK 2026"
+    title = "FORMULIR DIGITAL MONITORING SUHU DAN KELEMBAPAN DEPARTEMEN RADIOLOGI PHPK 2026"
+    subtitle = "PHT-Tracker (Pressure, Humidity, Temp)"
     st.markdown(
         "<div class='ph-hero'>"
         "<h1>{title}</h1>"
@@ -880,7 +857,6 @@ def page_input():
 def page_download():
     header()
     st.caption("Download data - formulir resmi (PDF)")
-    # >>> REVISI 6: Tidak ada banner info / warning font
     ruang, m, y = filter_bar("dl")
     sh = build_form(ruang, y, m, month_data(ruang, y, m, TODAY()))
     zoom = st.slider("Zoom preview (%)", 60, 200, 100, 10, key="dl_zoom")
@@ -914,8 +890,6 @@ pg = st.navigation([
 ])
 
 with st.sidebar:
-    # >>> REVISI 1: HAPUS logo Primaya & tulisan RADIOLOGY DEPARTMENT PHPK 2026
-    # yang ada di paling atas sidebar.
     with st.expander("Pengaturan ruang & petugas"):
         cfg = load_cfg()
         nm = st.text_input("Nama ruang baru", key="cfg_nm")
