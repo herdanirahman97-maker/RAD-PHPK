@@ -669,7 +669,7 @@ html, body, [class*="css"], .stApp, .stMarkdown, .stButton, .stTextInput,
 [data-testid=stSidebar]{background:#ffffff !important;color:#111 !important}
 [data-testid="stHeader"]{background:transparent !important}
 .block-container{padding-top:1.2rem;max-width:100%}
-button[kind="primary"]{background:#0a5a9c;border-color:#0a5a9c}
+button[kind="primary"]{background:#008CBA;border-color:#008CBA}
 
 /* Light Theme Header CSS matching image reference */
 .ph-hero{
@@ -686,7 +686,7 @@ button[kind="primary"]{background:#0a5a9c;border-color:#0a5a9c}
   margin:0 0 10px; 
   font-weight:800; 
   letter-spacing:2px; 
-  color:#0a5a9c; 
+  color:#008CBA; 
   line-height:1;
 }
 .pht-sub{
@@ -710,7 +710,7 @@ button[kind="primary"]{background:#0a5a9c;border-color:#0a5a9c}
   color:#8d96a0;
 }
 
-.kp{display:flex;gap:12px;margin:6px 0 14px}.kc{flex:1;background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 1px 3px #0001;border-top:4px solid #0a5a9c}
+.kp{display:flex;gap:12px;margin:6px 0 14px}.kc{flex:1;background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 1px 3px #0001;border-top:4px solid #008CBA}
 .kc .t{font-size:12px;color:#667}.kc .v{font-size:28px;font-weight:700;margin:2px 0;color:#111}.kc .s{font-size:11px;color:#778}
 .cal{border-collapse:collapse;font-size:11px}.cal td,.cal th{border:1px solid #fff;text-align:center;min-width:26px;height:24px;padding:0 2px}
 .cal th{background:#cfe2f3;color:#124}.cal td.l{text-align:left;font-weight:700;background:#eef4fb;padding:0 8px;min-width:80px}
