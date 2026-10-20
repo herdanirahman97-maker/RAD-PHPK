@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 FORMULIR DIGITAL MONITORING SUHU DAN KELEMBAPAN DEPARTEMEN RADIOLOGI PHPK 2026
+PHT-Tracker (Pressure, Humidity, Temp)
 Primaya Hospital  |  Form/PHG/GAD-11-1/Rev.03
 """
 import base64
@@ -53,7 +54,7 @@ SHIFT_HOUR = {"P": 8, "S": 14, "M": 21}
 STD_RADIOLOGI = dict(t_lo=20.0, t_hi=24.0, h_lo=40.0, h_hi=60.0)
 DEFAULT_CFG = {
     "rooms": [dict(nama=n, tekanan=False, **STD_RADIOLOGI) for n in
-              ["Philips Briliance CT", "USG", "R.Operator", "ESWL", "Panoramik", "Radiografi Umum"]],
+              ["Philips Incisive CT", "USG", "R.Operator", "ESWL", "Panoramik", "Radiografi Umum"]],
     "staff": ["SL", "AG", "AY", "WT", "FF"],
 }
 
