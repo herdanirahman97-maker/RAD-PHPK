@@ -1,4 +1,19 @@
-streamlit>=1.36
-pandas
-reportlab
-openpyxl
+# =====================================================================
+# requirements.txt — Digital Monitoring QC Harian Radiologi PHPK
+# Primaya Hospital Pasar Kemis | Instalasi Radiologi
+# =====================================================================
+
+# Core web framework (butuh >= 1.37 untuk st.navigation, st.Page, st.context)
+streamlit>=1.37.0
+
+# Data processing (dipakai untuk baca/tulis CSV, tabel dashboard)
+pandas>=2.0.0
+
+# Generate PDF formulir (Form Suhu & Form Checklist QC)
+reportlab>=4.0.0
+
+# HTTP client untuk koneksi Supabase (REST API)
+requests>=2.31.0
+
+# QR code generator (bagian dari reportlab, tapi dipin eksplisit)
+qrcode>=7.4.2
