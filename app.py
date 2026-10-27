@@ -24,8 +24,8 @@ import streamlit.components.v1 as components
 
 # Cadangan tema: pastikan warna utama biru tua (bukan merah bawaan Streamlit) walau .streamlit/config.toml belum terbaca.
 try:
-    for _k, _v in {"base": "light", "primaryColor": "#1f2a7c", "backgroundColor": "#ffffff",
-                   "secondaryBackgroundColor": "#f5f8ff", "textColor": "#1c2a6b"}.items():
+    for _k, _v in {"base": "light", "primaryColor": "#004e75", "backgroundColor": "#ffffff",
+                   "secondaryBackgroundColor": "#f1f9fd", "textColor": "#004e75"}.items():
         st._config.set_option("theme." + _k, _v)
 except Exception:
     pass
@@ -1299,10 +1299,10 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800&display=swap');
 
-:root{--navy:#1f2a7c;--blue:#2b5fd9;--ink:#1c2a6b;--muted:#5f6b9a;--line:#e3e9f6;--soft:#f5f8ff;--ok:#2e9e5b;--bad:#d64545;--warn:#f0a81c;
---shadow:0 6px 22px rgba(31,42,124,.10);--shadow-hi:0 14px 34px rgba(31,42,124,.20);
-    --primary-color:#1f2a7c !important;--primary:#1f2a7c !important}
-html{accent-color:#1f2a7c}
+:root{--navy:#004e75;--blue:#1b7895;--ink:#004e75;--muted:#5a7a8c;--line:#d3e6ef;--soft:#f1f9fd;--ok:#2e9e5b;--bad:#d64545;--warn:#f0a81c;
+--shadow:0 6px 22px rgba(0,78,117,.10);--shadow-hi:0 14px 34px rgba(0,78,117,.20);
+    --primary-color:#004e75 !important;--primary:#004e75 !important}
+html{accent-color:#004e75}
 :root, html, body { color-scheme: light !important; }
 html{scroll-behavior:smooth}
 html, body, [class*="css"], .stApp, .stMarkdown, .stButton, .stTextInput,
@@ -1324,7 +1324,7 @@ html, body, [class*="css"], .stApp, .stMarkdown, .stButton, .stTextInput,
 [data-testid="stExpandSidebarButton"], [data-testid="stExpandSidebarButton"] *, [data-testid="stSidebarCollapsedControl"], [data-testid="stSidebarCollapsedControl"] *{visibility:visible !important}
 /* Layar lebar: sidebar tidak bisa ditutup (tombol "<<" disembunyikan) agar tidak pernah "hilang" */
 @media (min-width: 992px){[data-testid="stSidebarCollapseButton"]{display:none !important}}
-::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:#c9d6f5;border-radius:8px}::-webkit-scrollbar-thumb:hover{background:#9db8ff}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:#b9dcea;border-radius:8px}::-webkit-scrollbar-thumb:hover{background:#7fc0d8}
 
 /* ---------- animasi ---------- */
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
@@ -1341,68 +1341,68 @@ html, body, [class*="css"], .stApp, .stMarkdown, .stButton, .stTextInput,
 
 /* ---------- header ---------- */
 .hero{position:relative;overflow:hidden;background:#fff;border:1px solid var(--line);border-radius:22px;padding:30px 28px 24px;margin-bottom:22px;text-align:center;box-shadow:var(--shadow);animation:fadeUp .6s ease both}
-.hero::before{content:'';position:absolute;left:0;right:0;top:0;height:5px;background:linear-gradient(90deg,#1f2a7c,#2b5fd9,#27b5c9,#ffb81c,#2b5fd9,#1f2a7c);background-size:300% 100%;animation:shimmer 6s linear infinite}
+.hero::before{content:'';position:absolute;left:0;right:0;top:0;height:5px;background:linear-gradient(90deg,#004e75,#1b7895,#27b5c9,#ffb81c,#1b7895,#004e75);background-size:300% 100%;animation:shimmer 6s linear infinite}
 .hero .blob{position:absolute;border-radius:50%;filter:blur(38px);opacity:.35;pointer-events:none}
-.hero .b1{width:220px;height:220px;background:#9db8ff;left:-60px;top:-80px;animation:blob 9s ease-in-out infinite}
+.hero .b1{width:220px;height:220px;background:#7fc0d8;left:-60px;top:-80px;animation:blob 9s ease-in-out infinite}
 .hero .b2{width:200px;height:200px;background:#25D366;right:-50px;bottom:-90px;animation:blob 11s ease-in-out infinite reverse}
 .hero > *:not(.blob){position:relative;z-index:1}
 .hero img{height:56px;margin-bottom:14px;animation:floaty 4s ease-in-out infinite}
-.hero .ttl{font-size:clamp(20px,2.9vw,34px);font-weight:800;color:#1f2a7c;line-height:1.25;letter-spacing:.2px;margin:0 auto 10px;max-width:980px}
-.hero .sub{font-size:clamp(12px,1.4vw,15px);color:#5f6b9a;letter-spacing:.6px;margin-bottom:14px}
-.hero .code{display:inline-block;font-size:12px;color:#1f2a7c;background:#f5f8ff;border:1px solid #e3e9f6;padding:5px 14px;border-radius:999px}
+.hero .ttl{font-size:clamp(20px,2.9vw,34px);font-weight:800;color:#004e75;line-height:1.25;letter-spacing:.2px;margin:0 auto 10px;max-width:980px}
+.hero .sub{font-size:clamp(12px,1.4vw,15px);color:#5a7a8c;letter-spacing:.6px;margin-bottom:14px}
+.hero .code{display:inline-block;font-size:12px;color:#004e75;background:#f1f9fd;border:1px solid #d3e6ef;padding:5px 14px;border-radius:999px}
 .hero-c{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px 16px;margin-bottom:14px;box-shadow:var(--shadow);animation:fadeUp .5s ease both}
 .hero-c img{height:36px;animation:floaty 4s ease-in-out infinite}
-.hero-c .ttl{font-size:14px;font-weight:800;color:#1f2a7c;line-height:1.3}
-.hero-c .sub{font-size:11px;color:#5f6b9a;margin-top:2px}
+.hero-c .ttl{font-size:14px;font-weight:800;color:#004e75;line-height:1.3}
+.hero-c .sub{font-size:11px;color:#5a7a8c;margin-top:2px}
 
 /* ---------- kartu KPI (melayang) ---------- */
 .kp{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin:8px 0 18px}
-.kc{--c:#1f2a7c;background:#fff;border:1px solid var(--line);border-top:4px solid var(--c);border-radius:16px;padding:14px 18px;box-shadow:var(--shadow);
+.kc{--c:#004e75;background:#fff;border:1px solid var(--line);border-top:4px solid var(--c);border-radius:16px;padding:14px 18px;box-shadow:var(--shadow);
 transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s;animation:fadeUp .55s ease both}
 .kc:nth-child(2){animation-delay:.06s}.kc:nth-child(3){animation-delay:.12s}.kc:nth-child(4){animation-delay:.18s}.kc:nth-child(5){animation-delay:.24s}.kc:nth-child(6){animation-delay:.3s}
 .kc:hover{transform:translateY(-6px);box-shadow:var(--shadow-hi)}
-.kc .t{font-size:12px;color:#5f6b9a;font-weight:500}.kc .v{font-size:32px;font-weight:800;margin:4px 0 2px;color:#1f2a7c;line-height:1.1}.kc .s{font-size:11px;color:#5f6b9a}
+.kc .t{font-size:12px;color:#5a7a8c;font-weight:500}.kc .v{font-size:32px;font-weight:800;margin:4px 0 2px;color:#004e75;line-height:1.1}.kc .s{font-size:11px;color:#5a7a8c}
 
 /* ---------- kalender ---------- */
 .cal{border-collapse:separate;border-spacing:2px;font-size:11px}
 .cal td,.cal th{text-align:center;min-width:26px;height:26px;padding:0 2px;border-radius:6px;transition:transform .15s,box-shadow .15s}
-.cal th{background:#eaf0ff;color:#1f2a7c;font-weight:600}
-.cal td.l{text-align:left;font-weight:700;background:#f5f8ff;color:#1f2a7c;padding:0 10px;min-width:96px;white-space:nowrap;border-radius:8px}
-.cal td:not(.l):hover{transform:scale(1.35);box-shadow:0 6px 14px rgba(31,42,124,.28);position:relative;z-index:2}
+.cal th{background:#d7f2fc;color:#004e75;font-weight:600}
+.cal td.l{text-align:left;font-weight:700;background:#f1f9fd;color:#004e75;padding:0 10px;min-width:96px;white-space:nowrap;border-radius:8px}
+.cal td:not(.l):hover{transform:scale(1.35);box-shadow:0 6px 14px rgba(0,78,117,.28);position:relative;z-index:2}
 .s-ok{background:#2e9e5b;color:#fff}.s-high{background:#d64545;color:#fff;font-weight:700}.s-low{background:#f0a81c;color:#2b2000;font-weight:700}
 .s-empty{background:#9aa5b1;color:#fff}.s-future{background:#eef1f8;color:#bbb}
-.lg2{display:flex;gap:16px;font-size:12px;margin:10px 0;flex-wrap:wrap;color:#1c2a6b}.lg2 i{display:inline-block;width:14px;height:14px;border-radius:4px;margin-right:6px;vertical-align:-3px}
+.lg2{display:flex;gap:16px;font-size:12px;margin:10px 0;flex-wrap:wrap;color:#004e75}.lg2 i{display:inline-block;width:14px;height:14px;border-radius:4px;margin-right:6px;vertical-align:-3px}
 
 /* ---------- kotak, peringatan, floating ---------- */
-.box{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 18px;box-shadow:var(--shadow);margin-bottom:12px;font-size:13px;line-height:1.75;color:#1c2a6b;
+.box{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 18px;box-shadow:var(--shadow);margin-bottom:12px;font-size:13px;line-height:1.75;color:#004e75;
 transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s;animation:fadeUp .5s ease both}
 .box:hover{transform:translateY(-3px);box-shadow:var(--shadow-hi)}
 .alert{background:#fff4f4;border:1px solid #f5c6c6;border-left:6px solid #d64545;border-radius:14px;padding:12px 18px;margin:4px 0 14px;font-size:13px;line-height:1.75;color:#7a1f1f;
 animation:fadeUp .5s ease both,pulseRing 2.4s ease-out infinite}
 .hint{font-size:12px;margin:-8px 0 8px 2px}.hint.ok{color:#2e9e5b}.hint.bad{color:#d64545}
-.empty{text-align:center;padding:46px 20px;background:#f5f8ff;border:1.5px dashed #c9d6f5;border-radius:22px;color:#1f2a7c;animation:fadeUp .5s ease both}
+.empty{text-align:center;padding:46px 20px;background:#f1f9fd;border:1.5px dashed #b9dcea;border-radius:22px;color:#004e75;animation:fadeUp .5s ease both}
 .empty .ic{font-size:56px;display:inline-block;animation:floaty 3.2s ease-in-out infinite}
-.empty .h{font-size:20px;font-weight:700;margin:8px 0 4px}.empty .p{font-size:13px;color:#5f6b9a}
-.fab{position:fixed;right:18px;bottom:76px;z-index:999;background:linear-gradient(135deg,#1f2a7c,#2b5fd9);color:#fff;border-radius:999px;padding:10px 18px;font-size:13px;font-weight:600;
-box-shadow:0 10px 28px rgba(31,42,124,.38);animation:floaty 3.4s ease-in-out infinite;white-space:nowrap}
+.empty .h{font-size:20px;font-weight:700;margin:8px 0 4px}.empty .p{font-size:13px;color:#5a7a8c}
+.fab{position:fixed;right:18px;bottom:76px;z-index:999;background:linear-gradient(135deg,#004e75,#1b7895);color:#fff;border-radius:999px;padding:10px 18px;font-size:13px;font-weight:600;
+box-shadow:0 10px 28px rgba(0,78,117,.38);animation:floaty 3.4s ease-in-out infinite;white-space:nowrap}
 .fab small{opacity:.85;font-weight:400;margin-left:6px}
 
 /* ---------- sidebar ---------- */
 [data-testid="stSidebar"]{background:#ffffff !important;border-right:1px solid var(--line)}
 [data-testid="stSidebarNavLink"], [data-testid="stSidebarNav"] a{border-radius:12px !important;margin:3px 8px !important;transition:background .18s,transform .18s,box-shadow .18s}
-[data-testid="stSidebarNavLink"] *, [data-testid="stSidebarNav"] a *{color:#1f2a7c !important;font-weight:500}
-[data-testid="stSidebarNavLink"]:hover, [data-testid="stSidebarNav"] a:hover{background:#eef3ff !important;transform:translateX(5px)}
-[data-testid="stSidebarNavLink"][aria-current="page"], [data-testid="stSidebarNav"] a[aria-current="page"]{background:linear-gradient(90deg,#e6edff,#f5f8ff) !important;box-shadow:inset 4px 0 0 #1f2a7c}
+[data-testid="stSidebarNavLink"] *, [data-testid="stSidebarNav"] a *{color:#004e75 !important;font-weight:500}
+[data-testid="stSidebarNavLink"]:hover, [data-testid="stSidebarNav"] a:hover{background:#e4f4fb !important;transform:translateX(5px)}
+[data-testid="stSidebarNavLink"][aria-current="page"], [data-testid="stSidebarNav"] a[aria-current="page"]{background:linear-gradient(90deg,#d7f2fc,#f1f9fd) !important;box-shadow:inset 4px 0 0 #004e75}
 [data-testid="stSidebarNavLink"][aria-current="page"] *{font-weight:700}
 
 /* ---------- tombol ---------- */
-.stButton>button, .stDownloadButton>button{border-radius:999px;border:1.5px solid var(--line);background:#fff;color:#1f2a7c;font-weight:600;padding:.45rem 1.2rem;
-transition:transform .2s,box-shadow .2s,border-color .2s,color .2s;box-shadow:0 1px 2px rgba(31,42,124,.08)}
-.stButton>button:hover, .stDownloadButton>button:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(31,42,124,.18);border-color:#2b5fd9;color:#2b5fd9}
+.stButton>button, .stDownloadButton>button{border-radius:999px;border:1.5px solid var(--line);background:#fff;color:#004e75;font-weight:600;padding:.45rem 1.2rem;
+transition:transform .2s,box-shadow .2s,border-color .2s,color .2s;box-shadow:0 1px 2px rgba(0,78,117,.08)}
+.stButton>button:hover, .stDownloadButton>button:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(0,78,117,.18);border-color:#1b7895;color:#1b7895}
 .stButton>button:active, .stDownloadButton>button:active{transform:translateY(0) scale(.98)}
-.stButton>button[kind="primary"], [data-testid="stBaseButton-primary"]{background:linear-gradient(135deg,#1f2a7c,#2b5fd9) !important;border:none !important;color:#fff !important}
+.stButton>button[kind="primary"], [data-testid="stBaseButton-primary"]{background:linear-gradient(135deg,#004e75,#1b7895) !important;border:none !important;color:#fff !important}
 .stButton>button[kind="primary"] *, [data-testid="stBaseButton-primary"] *{color:#fff !important}
-.stButton>button[kind="primary"]:hover, [data-testid="stBaseButton-primary"]:hover{box-shadow:0 12px 26px rgba(43,95,217,.45)}
+.stButton>button[kind="primary"]:hover, [data-testid="stBaseButton-primary"]:hover{box-shadow:0 12px 26px rgba(27,120,149,.45)}
 .stButton>button:disabled, .stDownloadButton>button:disabled{opacity:.45;transform:none;box-shadow:none}
 
 /* ---------- FIX DROPDOWN & TEXT INPUT (LIGHT THEME) ---------- */
@@ -1415,18 +1415,18 @@ div[data-baseweb="input"], div[data-baseweb="textarea"], div[data-baseweb="selec
 div[data-baseweb="input"] input,
 div[data-baseweb="select"] input,
 div[data-baseweb="select"] > div {
-    color: #1c2a6b !important;
-    -webkit-text-fill-color: #1c2a6b !important;
+    color: #004e75 !important;
+    -webkit-text-fill-color: #004e75 !important;
 }
-div[data-baseweb="select"] svg { fill: #1c2a6b !important; }
-div[data-baseweb="input"]:hover, div[data-baseweb="textarea"]:hover, div[data-baseweb="select"] > div:hover { border-color:#9db8ff !important; }
-div[data-baseweb="input"]:focus-within, div[data-baseweb="textarea"]:focus-within, div[data-baseweb="select"] > div:focus-within { border-color:#2b5fd9 !important; box-shadow:0 0 0 4px rgba(43,95,217,.16); }
-div[data-baseweb="popover"] ul[role="listbox"] { background-color: #ffffff !important; border: 1px solid var(--line); border-radius:14px; box-shadow:0 16px 38px rgba(31,42,124,.20); padding:6px; }
+div[data-baseweb="select"] svg { fill: #004e75 !important; }
+div[data-baseweb="input"]:hover, div[data-baseweb="textarea"]:hover, div[data-baseweb="select"] > div:hover { border-color:#7fc0d8 !important; }
+div[data-baseweb="input"]:focus-within, div[data-baseweb="textarea"]:focus-within, div[data-baseweb="select"] > div:focus-within { border-color:#1b7895 !important; box-shadow:0 0 0 4px rgba(27,120,149,.16); }
+div[data-baseweb="popover"] ul[role="listbox"] { background-color: #ffffff !important; border: 1px solid var(--line); border-radius:14px; box-shadow:0 16px 38px rgba(0,78,117,.20); padding:6px; }
 ul[role="listbox"] { list-style:none !important; margin:0; }
-li[role="option"] { background-color: #ffffff !important; color: #1c2a6b !important; border-radius:10px; margin:2px 0; transition:background .12s,padding-left .12s; }
-li[role="option"]:hover, li[role="option"][aria-selected="true"] { background-color: #eef3ff !important; color: #1f2a7c !important; padding-left:18px; }
+li[role="option"] { background-color: #ffffff !important; color: #004e75 !important; border-radius:10px; margin:2px 0; transition:background .12s,padding-left .12s; }
+li[role="option"]:hover, li[role="option"][aria-selected="true"] { background-color: #e4f4fb !important; color: #004e75 !important; padding-left:18px; }
 li[role="option"][aria-selected="true"]{font-weight:700;}
-label[data-baseweb="checkbox"]:has(input:checked) > span:first-child{background-color:#1f2a7c !important;border-color:#1f2a7c !important}
+label[data-baseweb="checkbox"]:has(input:checked) > span:first-child{background-color:#004e75 !important;border-color:#004e75 !important}
 
 /* ---------- TAB: BIRU TUA (menimpa merah bawaan Streamlit) ---------- */
 [data-baseweb="tab-highlight"], [data-baseweb="tab-border"],
@@ -1439,8 +1439,8 @@ label[data-baseweb="checkbox"]:has(input:checked) > span:first-child{background-
     border: none !important;
 }
 [role="tab"], button[data-baseweb="tab"] {
-    background-color: #f5f8ff !important;
-    border: 1.5px solid #c9d6f5 !important;
+    background-color: #f1f9fd !important;
+    border: 1.5px solid #b9dcea !important;
     border-radius: 12px !important;
     padding: 8px 20px !important;
     margin-right: 10px !important;
@@ -1449,23 +1449,23 @@ label[data-baseweb="checkbox"]:has(input:checked) > span:first-child{background-
     box-shadow: none !important;
 }
 [role="tab"] *, button[data-baseweb="tab"] * {
-    color: #1f2a7c !important;
-    -webkit-text-fill-color: #1f2a7c !important;
+    color: #004e75 !important;
+    -webkit-text-fill-color: #004e75 !important;
     font-weight: 700 !important;
-    fill: #1f2a7c !important;
+    fill: #004e75 !important;
 }
-[role="tab"]:hover, button[data-baseweb="tab"]:hover { background-color: #eef3ff !important; }
+[role="tab"]:hover, button[data-baseweb="tab"]:hover { background-color: #e4f4fb !important; }
 [role="tab"][aria-selected="true"], button[data-baseweb="tab"][aria-selected="true"] {
-    background: linear-gradient(90deg, #e6edff, #f5f8ff) !important;
-    box-shadow: inset 4px 0 0 #1f2a7c !important;
-    border: 1.5px solid #c9d6f5 !important;
+    background: linear-gradient(90deg, #d7f2fc, #f1f9fd) !important;
+    box-shadow: inset 4px 0 0 #004e75 !important;
+    border: 1.5px solid #b9dcea !important;
 }
 [role="tab"]:focus, [role="tab"]:active, [role="tab"]:focus-visible,
 button[data-baseweb="tab"]:focus, button[data-baseweb="tab"]:active, button[data-baseweb="tab"]:focus-visible {
     outline: none !important;
     outline-color: transparent !important;
-    box-shadow: inset 4px 0 0 #1f2a7c !important;
-    border-color: #c9d6f5 !important;
+    box-shadow: inset 4px 0 0 #004e75 !important;
+    border-color: #b9dcea !important;
 }
 
 /* PERBAIKAN WARNA EXPANDER */
@@ -1898,7 +1898,7 @@ def page_ruang():
     tgl = n.date()
     data = month_data(ruang, tgl.year, tgl.month)
     badges = " &nbsp; ".join("{} {} ({:02d}.00)".format("✅" if (tgl.day, s) in data else "⬜", SHIFT_NAME[s], SHIFT_HOUR[s]) for s in "PSM")
-    st.markdown("<div class='box'><span style='font-size:12px;color:#667'>Ruangan</span><br><span style='font-size:26px;font-weight:700;color:#0b5cab'>{}</span><br>"
+    st.markdown("<div class='box'><span style='font-size:12px;color:#667'>Ruangan</span><br><span style='font-size:26px;font-weight:700;color:#004e75'>{}</span><br>"
                 "<span style='font-size:12px;color:#556'>{}, {} {} {} &middot; {} WIB</span><br><span style='font-size:12px'>Sudah diisi hari ini: {}</span>{}</div>".format(
                     escape(ruang), HARI[tgl.weekday()], tgl.day, BLN[tgl.month - 1], tgl.year, n.strftime("%H:%M"), badges,
                     "" if is_author() else "<br><span style='font-size:11px;color:#667'>&#128274; Terkunci ke ruangan ini. Untuk ruangan lain, scan QR code ruangan tersebut.</span>"), unsafe_allow_html=True)
