@@ -224,7 +224,11 @@ def _sb(method, path, params=None, body=None, prefer=None):
     except Exception as e:
         raise StorageError("Tidak bisa menghubungi database ({})".format(type(e).__name__))
     if r.status_code >= 300:
-        raise StorageError("Database menolak permintaan ({}): {}".format(r.status_code, r.text[:200]))
+        body = r.text.lstrip()
+        if body[:1] == "<":   # HTML = bukan API Supabase -> SUPABASE_URL salah
+            raise StorageError("SUPABASE_URL salah: server membalas halaman web, bukan API Supabase. "
+                               "Isi dengan https://<project-ref>.supabase.co (tanpa /dashboard dan tanpa /rest/v1). Kode {}".format(r.status_code))
+        raise StorageError("Database menolak permintaan ({}): {}".format(r.status_code, body[:200]))
     return r
 
 
@@ -828,9 +832,9 @@ def build_th_form(ruang, y, m, data):
     X0, LBL, XD, XE, KW, SB, DW = TH_X0, TH_LBL, TH_XD, TH_XE, TH_KW, TH_SUB, TH_DAYW
     XK = XE + KW
 
-    # ---- footer (gambar milik Anda; cadangan = pita biru tua) ----
+    # ---- footer: pita biru tipis setinggi referensi; gambar footer dipasang proporsional di kiri ----
+    fh = 22.0
     fw_, fh_ = _png_dimensions(FOOTER_FILE)
-    fh = min(max(W * fh_ / fw_, 14.0), 60.0) if fw_ and fh_ else 22.0
 
     # ---- header: logo kiri, judul kanan ----
     _logo_into(sh, X0, 14, 130, 34)
@@ -982,11 +986,19 @@ def build_th_form(ruang, y, m, data):
     sh.ctext(bx, by, bw, bh, FORM_CODE_TH, 7.2, False, C_NAVY)
 
     # ---- footer ----
+    bar = C_NAVY
+    try:   # ambil warna latar dari gambar footer agar menyatu dengan pita
+        from PIL import Image
+        r_, g_, b_ = Image.open(FOOTER_FILE).convert("RGB").getpixel((1, 1))
+        bar = "#{:02x}{:02x}{:02x}".format(r_, g_, b_)
+    except Exception:
+        pass
+    sh.rect(0, H - fh, W, fh, bar, None, 0)
     ft = _logo_b64(FOOTER_FILE)
-    if ft:
-        sh.image(0, H - fh, W, fh, ft)
+    if ft and fw_ and fh_:
+        iw = min(fh * fw_ / fh_, W)
+        sh.image(14.0, H - fh, iw, iw * fh_ / fw_, ft)
     else:
-        sh.rect(0, H - fh, W, fh, C_NAVY, None, 0)
         sh.text(X0 + 4, H - fh / 2 + 3, "www.primayahospital.com", 7.5, True, "#ffffff")
         sh.text(X0 + 120, H - fh / 2 + 3, "primayahospital", 7.5, True, "#ffffff")
     return sh
