@@ -1339,21 +1339,24 @@ html, body, [class*="css"], .stApp, .stMarkdown, .stButton, .stTextInput,
 .cnt{counter-reset:num var(--n);animation:cntup 1.2s cubic-bezier(.2,.8,.2,1) both}
 .cnt::after{content:counter(num) attr(data-s)}
 
-/* ---------- header ---------- */
-.hero{position:relative;overflow:hidden;background:#fff;border:1px solid var(--line);border-radius:22px;padding:30px 28px 24px;margin-bottom:22px;text-align:center;box-shadow:var(--shadow);animation:fadeUp .6s ease both}
-.hero::before{content:'';position:absolute;left:0;right:0;top:0;height:5px;background:linear-gradient(90deg,#004e75,#1b7895,#27b5c9,#ffb81c,#1b7895,#004e75);background-size:300% 100%;animation:shimmer 6s linear infinite}
-.hero .blob{position:absolute;border-radius:50%;filter:blur(38px);opacity:.35;pointer-events:none}
-.hero .b1{width:220px;height:220px;background:#7fc0d8;left:-60px;top:-80px;animation:blob 9s ease-in-out infinite}
-.hero .b2{width:200px;height:200px;background:#25D366;right:-50px;bottom:-90px;animation:blob 11s ease-in-out infinite reverse}
+/* ---------- header (latar biru Primaya, teks putih) ---------- */
+.hero{position:relative;overflow:hidden;background:#015c80;border-radius:22px;padding:22px 34px 28px;margin-bottom:22px;text-align:center;box-shadow:var(--shadow);animation:fadeUp .6s ease both}
+.hero .blob{position:absolute;border-radius:50%;filter:blur(46px);opacity:.18;pointer-events:none;background:#ffffff}
+.hero .b1{width:240px;height:240px;left:-70px;top:-100px;animation:blob 9s ease-in-out infinite}
+.hero .b2{width:220px;height:220px;right:-60px;bottom:-110px;animation:blob 11s ease-in-out infinite reverse}
 .hero > *:not(.blob){position:relative;z-index:1}
-.hero img{height:56px;margin-bottom:14px;animation:floaty 4s ease-in-out infinite}
-.hero .ttl{font-size:clamp(20px,2.9vw,34px);font-weight:800;color:#004e75;line-height:1.25;letter-spacing:.2px;margin:0 auto 10px;max-width:980px}
-.hero .sub{font-size:clamp(12px,1.4vw,15px);color:#5a7a8c;letter-spacing:.6px;margin-bottom:14px}
-.hero .code{display:inline-block;font-size:12px;color:#004e75;background:#f1f9fd;border:1px solid #d3e6ef;padding:5px 14px;border-radius:999px}
-.hero-c{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px 16px;margin-bottom:14px;box-shadow:var(--shadow);animation:fadeUp .5s ease both}
-.hero-c img{height:36px;animation:floaty 4s ease-in-out infinite}
-.hero-c .ttl{font-size:14px;font-weight:800;color:#004e75;line-height:1.3}
-.hero-c .sub{font-size:11px;color:#5a7a8c;margin-top:2px}
+.hero .top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.wm{text-align:left;line-height:1}
+.wm b{display:block;font-size:26px;font-weight:700;letter-spacing:2px;color:#ffffff !important}
+.wm span{display:block;font-size:8.5px;font-weight:600;letter-spacing:7px;margin-top:5px;color:#ffffff !important}
+.hero .hfy{font-size:21px;font-weight:300;color:#ffffff !important;letter-spacing:.3px}
+.hero .ttl{font-size:clamp(22px,3.1vw,36px);font-weight:800;color:#ffffff !important;line-height:1.25;letter-spacing:.3px;margin:0 auto 8px;max-width:980px}
+.hero .sub{font-size:clamp(12px,1.4vw,15px);color:rgba(255,255,255,.88) !important;letter-spacing:1.2px;margin-bottom:14px}
+.hero .code{display:inline-block;font-size:12px;color:#ffffff !important;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.38);padding:5px 14px;border-radius:999px}
+.hero-c{display:flex;align-items:center;gap:16px;background:#015c80;border-radius:16px;padding:12px 18px;margin-bottom:14px;box-shadow:var(--shadow);animation:fadeUp .5s ease both}
+.hero-c .wm b{font-size:17px;letter-spacing:1.5px}.hero-c .wm span{font-size:6px;letter-spacing:5px;margin-top:3px}
+.hero-c .ttl{font-size:14px;font-weight:800;color:#ffffff !important;line-height:1.3}
+.hero-c .sub{font-size:11px;color:rgba(255,255,255,.85) !important;margin-top:2px}
 
 /* ---------- kartu KPI (melayang) ---------- */
 .kp{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin:8px 0 18px}
@@ -1483,17 +1486,16 @@ button[data-baseweb="tab"]:focus, button[data-baseweb="tab"]:active, button[data
 
 
 def header(compact=False):
-    """Header (kelas CSS di blok style di atas). Teks dibuat satu baris agar tidak dianggap code-block oleh markdown."""
-    logo = _logo_b64()
-    img = "<img src='data:image/png;base64,{}'>".format(logo) if logo else ""
+    """Header dashboard: latar biru Primaya, teks putih (tanpa gambar logo agar tetap tajam)."""
+    wm = "<div class='wm'><b>PRIMAYA</b><span>HOSPITAL</span></div>"
     if compact:   # versi ringkas untuk halaman QR (layar HP)
-        st.markdown("<div class='hero-c'>{}<div><div class='ttl'>{}</div><div class='sub'>Pressure &middot; Humidity &middot; Temp &middot; Primaya Hospital Pasar Kemis</div></div></div>".format(
-            img, escape(APP_TITLE)), unsafe_allow_html=True)
+        st.markdown("<div class='hero-c'>{}<div><div class='ttl'>{}</div><div class='sub'>Pressure &middot; Humidity &middot; Temp &middot; Pasar Kemis</div></div></div>".format(
+            wm, escape(APP_TITLE)), unsafe_allow_html=True)
         return
-    st.markdown("<div class='hero'><span class='blob b1'></span><span class='blob b2'></span>{}<div class='ttl'>{}</div>"
-                "<div class='sub'>Pressure &middot; Humidity &middot; Temp</div>"
+    st.markdown("<div class='hero'><span class='blob b1'></span><span class='blob b2'></span><div class='top'>{}<div class='hfy'>Here for You</div></div>"
+                "<div class='ttl'>{}</div><div class='sub'>Pressure &middot; Humidity &middot; Temp</div>"
                 "<div class='code'>Instalasi Radiologi &nbsp;|&nbsp; Primaya Hospital Pasar Kemis &nbsp;|&nbsp; {} &nbsp;&middot;&nbsp; {}</div></div>".format(
-                    img, escape(APP_TITLE), FORM_CODE_TH, FORM_CODE_QC), unsafe_allow_html=True)
+                    wm, escape(APP_TITLE), FORM_CODE_TH, FORM_CODE_QC), unsafe_allow_html=True)
 
 
 def month_year_bar(prefix, cols=(1.6, 1)):
