@@ -56,6 +56,7 @@ QC_FILE = os.path.join(DATA_DIR, "qc_entries.csv")
 CFG_FILE = os.path.join(DATA_DIR, "config.json")
 LOGO_FILE = "Primaya Logo.png"
 HFY_FILE = "Here for You.png"
+FOOTER_FILE = "Primaya Footer.png"
 FONT_REG = "Lexend-Regular.ttf"
 FONT_BOLD = "Lexend-Bold.ttf"
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -783,152 +784,211 @@ def _logo_into(sh, x, y, box_w, box_h, path=LOGO_FILE, align="left"):
         sh.text(x + 62, y + box_h * 0.7, "Hospital", 12, True, "#095475")
 
 
-# ---------- FORM 1: SUHU & KELEMBABAN (Form/PHG/GAD-111-1/Rev.03) ----------
-X0, AW, BW = 6.0, 26.0, 26.0
-XD = X0 + AW + BW
-SUBW = 10.0
-DAYW = SUBW * 3
-XE = XD + 31 * DAYW
-KW = 84.0     # lebar kolom Keterangan (di kanan grid)
+# ---------- FORM 1: SUHU, KELEMBABAN, DAN TEKANAN RUANGAN (Form/PHG/GAD-111-1/Rev.03) ----------
+# Dibuat dalam satuan piksel gambar referensi (lebar 922) dan tinggi dipaksa rasio A4 landscape.
 LW = 0.5
+C_BLUE, C_NAVY, C_LINE, C_TXT, C_NOTE = "#d7f2fc", "#004e75", "#6e757a", "#6b7075", "#4f5a63"
+TH_W = 922.0
+TH_X0, TH_LBL = 24.0, 42.0
+TH_XD = TH_X0 + TH_LBL                 # awal kolom tanggal 1
+TH_SUB = 768.0 / 31 / 3                # lebar 1 sub-kolom (P / S / M)
+TH_DAYW = TH_SUB * 3
+TH_XE = TH_XD + 31 * TH_DAYW           # akhir kolom tanggal 31
+TH_KW = 71.0                           # kolom Keterangan
 
 TH_NOTES = [
     "- P (Pagi) Pkl 08.00 Waktu Setempat, S (Sore) Pkl 14.00 Waktu Setempat, M (Malam) Pkl 21.00 Waktu Setempat",
     "- Tek = Tekanan (diisi jika ruangan mempunyai tekanan) positif dan negatif, dengan perbedaan tekanan udara luar minimal lebih rendah 2,5 pascal dibanding tekanan udara di sebelahnya",
     "- Jika suhu, kelembaban dan tekanan tidak sesuai dengan batasan normal, segera hubungi petugas maintenance.",
 ]
+# (x, baris 1, baris 2) - sumber di kaki form
 TH_SOURCES = [
-    "- Peraturan Menteri Kesehatan Republik Indonesia No. 02 Tahun 2023 Tentang Kesehatan Lingkungan",
-    "- Peraturan Menteri Kesehatan Republik Indonesia No. 72 Tahun 2016 Tentang Standar Pelayanan Kefarmasian di Rumah Sakit",
-    "- CDC: Guidelines for Environmental Infection Control in Healthcare Facilities 2003",
-    "- Peraturan Menteri Kesehatan Republik Indonesia No. 40 Tahun 2022 Tentang Persyaratan Teknis Bangunan, Prasarana, dan Peralatan Kesehatan Rumah Sakit",
+    (48, "- Peraturan Menteri Kesehatan Republik Indonesia", "No. 02 Tahun 2023 Tentang Kesehatan Lingkungan"),
+    (193, "- Peraturan Menteri Kesehatan Republik Indonesia No. 40 Tahun 2022", "Tentang Persyaratan Teknis Bangunan, Prasarana, dan Peralatan Kesehatan Rumah Sakit"),
+    (429, "- Peraturan Menteri Kesehatan Republik Indonesia No. 72 Tahun 2016", "Tentang Standar Pelayanan Kefarmasian di Rumah Sakit"),
+    (612, "- CDC: Guidelines for Enviromental Infection", "Control in Healtcare Facilities 2003"),
 ]
+# Tabel standar suhu/kelembaban per ruangan (sesuai form): (judul, suhu, kelembaban)
+TH_STD = [("Operasi", "20-26"), ("Tindakan", "20-24"), ("Rawat inap/rawat jalan/\nisolasi/Bayi Normal", "22-24"),
+          ("Teknik/Ruang Panel/\nRuang Mesin RO", "22-26"), ("ICU/PICU/HCU/\nNICU/IGD", "22-26"),
+          ("Laboratorium/Radiologi/\nKamar Jenazah/Farmasi", "20-24"), ("Mesin\nLift", "20-24"), ("Dapur", "22-30"),
+          ("IGD", "22-26"), ("Luka\nBakar", "24-26"), ("Pembersihan/Pengemasan", "22-26"), ("Penyimpanan Steril", "20-24"),
+          ("Gudang Linen Bersih/\nRekam Medis", "22-26"), ("Server/ MCFA/\nKontrol/UPS", "20-24"), ("Genset/\nTrafo", "35-40"),
+          ("Angiografi/ Radioterapi/\nKedokteran Nuklir", "20-24")]
+TH_STD_EDGES = [75, 100, 127, 193, 251, 296, 363, 384, 405, 425, 447, 522, 577, 635, 676, 700, 768]
 
 
 def build_th_form(ruang, y, m, data):
     std = room_std(ruang)
     tlo, thi, hlo, hhi = std["t_lo"], std["t_hi"], std["h_lo"], std["h_hi"]
-    TMAX, TMIN = 31, 16
-    W = XE + KW + 6
-    sh = Sheet(W, 0)
+    W = TH_W
+    H = W / math.sqrt(2)                 # rasio A4 landscape -> footer tepat di dasar halaman
+    sh = Sheet(W, H)
+    sh.margin = 0.0                      # full-bleed di PDF (footer penuh)
+    X0, LBL, XD, XE, KW, SB, DW = TH_X0, TH_LBL, TH_XD, TH_XE, TH_KW, TH_SUB, TH_DAYW
+    XK = XE + KW
 
-    # ---- header ----
-    _logo_into(sh, X0, 4, 104, 32)
-    _logo_into(sh, W - 6 - 96, 6, 96, 30, HFY_FILE, "right")
-    sh.text(W / 2, 17, "PEMERIKSAAN HARIAN SUHU & KELEMBABAN RUANG RADIOLOGI", 12, True, anchor="middle")
-    sh.text(W / 2, 31, "PRIMAYA HOSPITAL PASAR KEMIS", 10, True, anchor="middle")
-    sh.text(X0, 54, "Ruang", 9)
-    sh.text(X0 + 92, 54, ": " + ruang, 9, True)
-    sh.text(X0, 66, "Bulan, Tahun", 9)
-    sh.text(X0 + 92, 66, ": {} {}".format(BLN[m - 1], y), 9, True)
-    sh.text(420, 54, "Suhu", 9)
-    sh.text(480, 54, ": {:g} - {:g} °C".format(tlo, thi), 9)
-    sh.text(420, 66, "Kelembaban", 9)
-    sh.text(480, 66, ": {:g} - {:g} %".format(hlo, hhi), 9)
+    # ---- footer (gambar milik Anda; cadangan = pita biru tua) ----
+    fw_, fh_ = _png_dimensions(FOOTER_FILE)
+    fh = min(max(W * fh_ / fw_, 14.0), 60.0) if fw_ and fh_ else 22.0
+
+    # ---- header: logo kiri, judul kanan ----
+    _logo_into(sh, X0, 14, 130, 34)
+    sh.text(W - 18, 33, "FORMULIR SUHU, KELEMBABAN,", 15.5, True, C_NAVY, "end")
+    sh.text(W - 18, 52, "DAN TEKANAN RUANGAN", 15.5, True, C_NAVY, "end")
+    sh.text(X0 + 1, 82, "Bulan, Tahun:", 7, False, C_TXT)
+    sh.text(82, 82, "{} {}".format(BLN[m - 1], y), 7.5, True, BLACK)
+    sh.line(80, 84, 230, 84, C_TXT, 0.5)
+    sh.text(270, 82, "Ruang:", 7, False, C_TXT)
+    sh.text(298, 82, ruang, 7.5, True, BLACK)
+    sh.line(296, 84, 418, 84, C_TXT, 0.5)
+
+    # ---- tinggi baris ----
+    yt0, H1, H2 = 92.0, 15.0, 13.0
+    gt0 = yt0 + H1 + H2
+    RHm, RTk, RN = 19.0, 19.0, 21.0
+    tail = RHm + 2 * RTk + 5 + 3 * RN
+    below = 118.0
+    RT = max((H - gt0 - tail - below - fh) / 17.0, 11.0)
 
     # ---- header tabel ----
-    y0 = 76.0
-    HT, HJ = 14.0, 12.0
-    y1 = y0 + HT
-    sh.rect(X0, y0, XD - X0, HT, GRAYL, BLACK, LW)
-    sh.ctext(X0, y0, XD - X0, HT, "Tanggal", 7.5, True)
-    sh.rect(X0, y1, XD - X0, HJ, GRAYL, BLACK, LW)
-    sh.ctext(X0, y1, XD - X0, HJ, "Jam", 7, True)
+    sh.rect(X0, yt0, LBL, H1, None, C_LINE, LW)
+    sh.ctext(X0, yt0, LBL, H1, "Tanggal", 5.4, False, C_TXT)
+    sh.rect(X0, yt0 + H1, LBL, H2, None, C_LINE, LW)
+    sh.ctext(X0, yt0 + H1, LBL, H2, "°C", 5.4, False, C_TXT)
     for d in range(1, 32):
-        x = XD + (d - 1) * DAYW
-        sh.rect(x, y0, DAYW, HT, GRAYL, BLACK, LW)
-        sh.ctext(x, y0, DAYW, HT, str(d), 7.5, True)
+        x = XD + (d - 1) * DW
+        sh.rect(x, yt0, DW, H1, None, C_LINE, LW)
+        sh.ctext(x, yt0, DW, H1, str(d), 6, False, C_TXT)
         for k, ch in enumerate("PSM"):
-            sh.rect(x + k * SUBW, y1, SUBW, HJ, GRAYL, BLACK, LW)
-            sh.ctext(x + k * SUBW, y1, SUBW, HJ, ch, 6.5, True)
-    sh.rect(XE, y0, KW, HT + HJ, GRAYL, BLACK, LW)
-    sh.ctext(XE, y0, KW, HT + HJ, "Keterangan", 8, True)
-    gt0 = y1 + HJ
+            sh.rect(x + k * SB, yt0 + H1, SB, H2, None, C_LINE, 0.35)
+            sh.ctext(x + k * SB, yt0 + H1, SB, H2, ch, 4.8, False, C_TXT)
+    sh.rect(XE, yt0, KW, H1 + H2, None, C_LINE, LW)
+    sh.ctext(XE, yt0, KW, H1 + H2, "Keterangan", 5.6, False, C_TXT)
 
-    def grid(gt, labels, rh, side, side_size=8.5):
-        """Satu bagian grid (baris = nilai skala). Mengembalikan y bawah bagian."""
-        gh = len(labels) * rh
-        for i in range(len(labels) + 1):
-            sh.line(XD, gt + i * rh, XE, gt + i * rh, BLACK, LW)
-        for i in range(0, 93):
-            xx = XD + i * SUBW
-            sh.line(xx, gt, xx, gt + gh, BLACK, 0.7 if i % 3 == 0 else LW)
-        sh.rect(XD, gt, XE - XD, gh, None, BLACK, 0.9)
-        sh.rect(X0, gt, AW, gh, None, BLACK, LW)
-        sh.text(X0 + AW / 2 + side_size * 0.35, gt + gh / 2, side, side_size, False, BLACK, "middle", 90)
-        for i, lab in enumerate(labels):
-            sh.rect(X0 + AW, gt + i * rh, BW, rh, None, BLACK, LW)
-            sh.ctext(X0 + AW, gt + i * rh, BW, rh, lab, 6.2)
-        sh.rect(XE, gt, KW, gh, None, BLACK, LW)
-        return gt + gh
+    # ---- suhu 32..16 : baris genap berwarna biru muda ----
+    TMAX = 32
+    gt1 = gt0 + 17 * RT
+    for i, v in enumerate(range(TMAX, 15, -1)):
+        yy = gt0 + i * RT
+        if v % 2 == 0:
+            sh.rect(X0, yy, KW + XE - X0, RT, C_BLUE, None, 0)
+    for i, v in enumerate(range(TMAX, 15, -1)):
+        yy = gt0 + i * RT
+        sh.ctext(X0, yy, LBL, RT, str(v), 5.8, False, C_TXT)
+        sh.line(X0, yy, XK, yy, C_LINE, 0.55)
+        sh.line(XD, yy + RT / 2, XE, yy + RT / 2, "#9aa3a8", 0.35)
+    yt = lambda v: gt0 + (TMAX - v) * RT + RT / 2
 
-    # ---- suhu 31..16 ----
-    RT = 14.0
-    gt_t = gt0
-    gb = grid(gt_t, [str(v) for v in range(TMAX, TMIN - 1, -1)], RT, "°C", 9)
-    yt = lambda v: gt_t + (TMAX - v) * RT + RT / 2
-    # ---- kelembaban 100..10 ----
-    RH = 22.0
-    gt_h = gb
-    gb = grid(gt_h, [str(v) for v in range(100, 0, -10)], RH, "Kelembaban (%)", 8)
-    yh = lambda v: gt_h + (100 - v) / 10.0 * RH + RH / 2
-    # ---- tekanan (+ / -), diisi tangan bila ruangan bertekanan ----
-    gb = grid(gb, ["+", "-"], 14.0, "Tek", 7)
-    # ---- tiga baris nama: Pagi / Siang / Malam ----
-    NH = 17.0
+    # ---- kelembaban (1 baris, angka ditulis di sel P/S/M) & tekanan (+ / -) ----
+    gt2 = gt1 + RHm
+    gt3 = gt2 + 2 * RTk
+    sh.line(X0, gt1, XK, gt1, C_LINE, 0.55)
+    sh.ctext(X0, gt1, LBL, RHm, "Kelembaban", 5.0, False, C_TXT)
+    sh.line(X0, gt2, XK, gt2, C_LINE, 0.55)
+    sh.ctext(X0, gt2, 30.0, 2 * RTk, "Tek", 5.6, False, C_TXT)
+    sh.line(X0 + 30.0, gt2 + RTk, XK, gt2 + RTk, C_LINE, 0.55)
+    sh.ctext(X0 + 30.0, gt2, LBL - 30.0, RTk, "+", 5.6, False, C_TXT)
+    sh.ctext(X0 + 30.0, gt2 + RTk, LBL - 30.0, RTk, "-", 5.6, False, C_TXT)
+    sh.line(X0, gt3, XK, gt3, C_LINE, 0.55)
+    sh.line(X0 + 30.0, gt2, X0 + 30.0, gt3, C_LINE, 0.5)
+    # garis vertikal grid
+    sh.line(X0, gt0, X0, gt3, C_LINE, 0.55)
+    sh.line(XD, gt0, XD, gt3, C_LINE, 0.8)
+    for i in range(1, 93):
+        sh.line(XD + i * SB, gt0, XD + i * SB, gt3, C_LINE, 0.8 if i % 3 == 0 else 0.35)
+    sh.line(XE, gt0, XE, gt3, C_LINE, 0.8)
+    sh.line(XK, gt0, XK, gt3, C_LINE, 0.55)
+
+    # ---- tiga baris nama (Pagi / Siang / Malam) ----
+    gn = gt3 + 5
     for k, (lab, s) in enumerate((("Nama\n(Pagi)", "P"), ("Nama\n(Siang)", "S"), ("Nama\n(Malam)", "M"))):
-        yy = gb + k * NH
-        sh.rect(X0, yy, AW + BW, NH, None, BLACK, LW)
-        sh.ctext(X0, yy, AW + BW, NH, lab, 5.6, True)
+        yy = gn + k * RN
+        sh.rect(X0, yy, LBL, RN, None, C_LINE, 0.55)
+        sh.ctext(X0, yy, LBL, RN, lab, 5.0, False, C_TXT)
         for d in range(1, 32):
-            x = XD + (d - 1) * DAYW
-            sh.rect(x, yy, DAYW, NH, None, BLACK, LW)
+            x = XD + (d - 1) * DW
+            sh.rect(x, yy, DW, RN, None, C_LINE, 0.55)
             e = data.get((d, s))
             if e and e["petugas"]:
-                sh.ctext(x, yy, DAYW, NH, e["petugas"], 8.5 if len(e["petugas"]) <= 2 else 6.5, True)
-        sh.rect(XE, yy, KW, NH, None, BLACK, LW)
-    yb = gb + 3 * NH
+                sh.ctext(x, yy, DW, RN, e["petugas"], 7.5 if len(e["petugas"]) <= 2 else 5.5, True, BLACK)
+        sh.rect(XE, yy, KW, RN, None, C_LINE, 0.55)
+    ge = gn + 3 * RN
 
-    # ---- titik data ----
+    # ---- titik suhu, angka kelembaban ----
     for (d, s), e in data.items():
         k = "PSM".index(s)
-        cx = XD + (d - 1) * DAYW + (k + .5) * SUBW
-        for v, lo, hi, fy, top, bot in ((e["suhu"], tlo, thi, yt, gt_t, gt_t + 16 * RT), (e["hum"], hlo, hhi, yh, gt_h, gt_h + 10 * RH)):
-            cy = min(max(fy(v), top + 3.0), bot - 3.0)
-            sh.circle(cx, cy, 2.8, BLACK if lo <= v <= hi else RED)
+        cx = XD + (d - 1) * DW + (k + .5) * SB
+        cy = min(max(yt(e["suhu"]), gt0 + 3.0), gt1 - 3.0)
+        sh.circle(cx, cy, 2.3, BLACK if tlo <= e["suhu"] <= thi else RED)
+        sh.ctext(XD + (d - 1) * DW + k * SB, gt1, SB, RHm, "{:g}".format(e["hum"]), 4.9, True, BLACK if hlo <= e["hum"] <= hhi else RED)
 
-    # ---- catatan, sumber, tanda tangan ----
-    yy = yb + 14
-    sh.text(X0, yy, "Catatan:", 8, True)
-    for ln in TH_NOTES:
-        for j, w in enumerate(textwrap.wrap(ln, 215)):
-            sh.text(X0 + 48, yy, w if j == 0 else "  " + w, 7.5)
-            yy += 9.5
-    yy += 4
-    sh.text(X0, yy, "Sumber:", 8, True)
-    for ln in TH_SOURCES:
-        for j, w in enumerate(textwrap.wrap(ln, 215)):
-            sh.text(X0 + 48, yy, w if j == 0 else "  " + w, 7.5)
-            yy += 9.5
+    # ---- keterangan / temuan (kolom kanan) ----
     notes = []
     for (d, s), e in sorted(data.items()):
         if e.get("ket"):
-            notes.extend(textwrap.wrap("Tgl {}/{}: {}".format(d, SHIFT_NAME[s], e["ket"]), 190))
-    if notes:
-        yy += 4
-        sh.text(X0, yy, "Temuan:", 8, True)
-        for ln in notes[:6]:
-            sh.text(X0 + 48, yy, ln, 7.5)
-            yy += 9.5
-    # tanda tangan koordinator unit (kanan bawah)
-    sx = XE - 60
-    sy = yb + 16
-    sh.text(sx, sy, "Mengetahui", 8.5, False, BLACK, "middle")
-    sh.text(sx, sy + 11, "Koordinator Unit", 8.5, False, BLACK, "middle")
-    sh.text(sx, sy + 56, "( {} )".format(SIGNERS[1][1]), 8.5, False, BLACK, "middle")
-    yend = max(yy, sy + 62)
-    sh.text(XE + KW, yend + 14, FORM_CODE_TH, 8, False, BLACK, "end")
-    sh.height = yend + 22
+            notes.extend(textwrap.wrap("{}/{}: {}".format(d, SHIFT_NAME[s], e["ket"]), 24))
+    for i, ln in enumerate(notes[:int((gt1 - gt0 - 6) / 5.8)]):
+        sh.text(XE + 3, gt0 + 7 + i * 5.8, ln, 4.6, False, BLACK)
+
+    # ---- catatan ----
+    yc = ge + 14
+    sh.text(X0 + 2, yc, "Catatan:", 6, False, C_TXT)
+    for i, ln in enumerate(TH_NOTES):
+        sh.text(62, yc + i * 8, ln, 6, False, C_NOTE)
+
+    # ---- tanda tangan koordinator unit ----
+    sx = XE + (KW - 2 * 24.0) / 2 + 12.0
+    sh.text(sx, yc + 2, "Mengetahui", 8, False, C_TXT, "middle")
+    sh.text(sx, yc + 13, "Koordinator Unit", 8, False, C_TXT, "middle")
+    sh.text(sx, yc + 62, "(" + "." * 52 + ")", 6, False, C_TXT, "middle")
+
+    # ---- tabel standar suhu & kelembaban ruangan ----
+    ty0 = yc + 8 * 3 + 4
+    HH, RR = 20.0, 13.0
+    ed = [24.0] + TH_STD_EDGES
+    sh.rect(ed[0], ty0, ed[1] - ed[0], HH, C_BLUE, C_LINE, LW)
+    sh.ctext(ed[0], ty0, ed[1] - ed[0], HH, "Ruangan/Unit", 5.0, False, C_TXT)
+    for i, (jud, suhu) in enumerate(TH_STD):
+        x0, x1 = ed[i + 1], ed[i + 2]
+        if i in (10, 11):    # CSSD: judul gabungan di atas, sub judul di bawah
+            sh.rect(x0, ty0 + HH / 2, x1 - x0, HH / 2, C_BLUE, C_LINE, LW)
+            sh.ctext(x0, ty0 + HH / 2, x1 - x0, HH / 2, jud, 4.4, False, C_TXT)
+        else:
+            sh.rect(x0, ty0, x1 - x0, HH, C_BLUE, C_LINE, LW)
+            sh.ctext(x0, ty0, x1 - x0, HH, jud, 4.4, False, C_TXT)
+        sh.rect(x0, ty0 + HH, x1 - x0, RR, None, C_LINE, LW)
+        sh.ctext(x0, ty0 + HH, x1 - x0, RR, suhu, 4.8, False, C_TXT)
+        sh.rect(x0, ty0 + HH + RR, x1 - x0, RR, None, C_LINE, LW)
+        sh.ctext(x0, ty0 + HH + RR, x1 - x0, RR, "40-60", 4.8, False, C_TXT)
+    sh.rect(ed[10 + 1], ty0, ed[13] - ed[11], HH / 2, C_BLUE, C_LINE, LW)
+    sh.ctext(ed[11], ty0, ed[13] - ed[11], HH / 2, "CSSD", 4.8, False, C_TXT)
+    sh.rect(ed[0], ty0 + HH, ed[1] - ed[0], RR, None, C_LINE, LW)
+    sh.ctext(ed[0], ty0 + HH, ed[1] - ed[0], RR, "Suhu (°C)", 4.8, False, C_TXT)
+    sh.rect(ed[0], ty0 + HH + RR, ed[1] - ed[0], RR, None, C_LINE, LW)
+    sh.ctext(ed[0], ty0 + HH + RR, ed[1] - ed[0], RR, "Kelembaban ( %)", 4.8, False, C_TXT)
+    ys = ty0 + HH + 2 * RR + 11
+
+    # ---- sumber ----
+    sh.text(X0 + 2, ys, "Sumber:", 4.8, False, C_TXT)
+    for x, l1, l2 in TH_SOURCES:
+        sh.text(x, ys, l1, 4.6, False, C_TXT)
+        sh.text(x + 4, ys + 7, l2, 4.6, False, C_TXT)
+
+    # ---- kode form (kotak biru) ----
+    bw, bh = 105.0, 11.0
+    bx, by = XK - bw, H - fh - 8 - bh
+    sh.rect(bx, by, bw, bh, None, C_NAVY, 0.7)
+    sh.ctext(bx, by, bw, bh, FORM_CODE_TH, 7.2, False, C_NAVY)
+
+    # ---- footer ----
+    ft = _logo_b64(FOOTER_FILE)
+    if ft:
+        sh.image(0, H - fh, W, fh, ft)
+    else:
+        sh.rect(0, H - fh, W, fh, C_NAVY, None, 0)
+        sh.text(X0 + 4, H - fh / 2 + 3, "www.primayahospital.com", 7.5, True, "#ffffff")
+        sh.text(X0 + 120, H - fh / 2 + 3, "primayahospital", 7.5, True, "#ffffff")
     return sh
 
 
@@ -1162,10 +1222,11 @@ def sheets_to_pdf(sheets, title="Formulir Radiologi - Primaya Hospital Pasar Kem
     c.setAuthor("Primaya Hospital Pasar Kemis - Instalasi Radiologi")
 
     for sh in sheets:
-        s = min((pw - 2 * MG) / sh.width, (ph - 2 * MG) / sh.height)
+        mg = getattr(sh, "margin", MG)   # form suhu dicetak full-bleed (margin 0) agar footer penuh
+        s = min((pw - 2 * mg) / sh.width, (ph - 2 * mg) / sh.height)
         ox = (pw - sh.width * s) / 2
-        tx = lambda x: ox + x * s
-        ty = lambda y: ph - (MG + y * s)
+        tx = lambda x, ox=ox, s=s: ox + x * s
+        ty = lambda y, mg=mg, s=s: ph - (mg + y * s)
         for op in sh.ops:
             k = op[0]
             if k == "rect":
@@ -1414,12 +1475,12 @@ def header(compact=False):
     logo = _logo_b64()
     img = "<img src='data:image/png;base64,{}'>".format(logo) if logo else ""
     if compact:   # versi ringkas untuk halaman QR (layar HP)
-        st.markdown("<div class='hero-c'>{}<div><div class='ttl'>{}</div><div class='sub'>Instalasi Radiologi &middot; Primaya Hospital Pasar Kemis</div></div></div>".format(
+        st.markdown("<div class='hero-c'>{}<div><div class='ttl'>{}</div><div class='sub'>Pressure &middot; Humidity &middot; Temp &middot; Primaya Hospital Pasar Kemis</div></div></div>".format(
             img, escape(APP_TITLE)), unsafe_allow_html=True)
         return
     st.markdown("<div class='hero'><span class='blob b1'></span><span class='blob b2'></span>{}<div class='ttl'>{}</div>"
-                "<div class='sub'>Primaya Hospital Pasar Kemis &middot; Suhu &middot; Kelembaban &middot; QC Peralatan</div>"
-                "<div class='code'>Instalasi Radiologi &nbsp;|&nbsp; {} &nbsp;&middot;&nbsp; {}</div></div>".format(
+                "<div class='sub'>Pressure &middot; Humidity &middot; Temp</div>"
+                "<div class='code'>Instalasi Radiologi &nbsp;|&nbsp; Primaya Hospital Pasar Kemis &nbsp;|&nbsp; {} &nbsp;&middot;&nbsp; {}</div></div>".format(
                     img, escape(APP_TITLE), FORM_CODE_TH, FORM_CODE_QC), unsafe_allow_html=True)
 
 
