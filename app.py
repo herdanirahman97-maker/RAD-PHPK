@@ -49,6 +49,7 @@ FORM_CODE_TH = "Form/PHG/GAD-111-1/Rev.03"    # kode form suhu & kelembaban (ses
 FORM_CODE_QC = "Form/PHG-PHPK/RAD-005/Rev.00"  # kode form daftar periksa harian (sesuai Excel)
 TZ = dt.timezone(dt.timedelta(hours=7))  # WIB. Streamlit Cloud berjalan di UTC, jadi zona waktu dipaksa ke WIB
 QC_DUE_HOUR = 17                         # checklist QC hari ini dianggap "jatuh tempo" setelah jam ini
+SUHU_NORMAL = (18.0, 22.0)               # batas suhu NORMAL (°C) untuk SEMUA ruangan: di atas 22 atau di bawah 18 = tidak normal
 
 DATA_DIR = "data_phpk"
 ENTRY_FILE = os.path.join(DATA_DIR, "entries.csv")
@@ -73,11 +74,11 @@ FONT_URLS = {
 }
 
 BLN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
-SHIFT_NAME = {"P": "Pagi", "S": "Sore", "M": "Malam"}
-SHIFT_LABEL = {"P": "P - Pagi (08.00)", "S": "S - Sore (14.00)", "M": "M - Malam (21.00)"}
+SHIFT_NAME = {"P": "Pagi", "S": "Siang", "M": "Malam"}
+SHIFT_LABEL = {"P": "P - Pagi (08.00)", "S": "S - Siang (14.00)", "M": "M - Malam (21.00)"}
 SHIFT_HOUR = {"P": 8, "S": 14, "M": 21}
 
-# Ruang PHPK + batas standar. Radiologi: suhu 20-24 C, kelembaban 40-60 %.
+# Ruang PHPK + batas standar. Suhu normal 18-22 C (SUHU_NORMAL), kelembaban 40-60 %.
 _PHPK_H = (40, 60)
 _ROOMS = [("Incisive CT",) + _PHPK_H, ("USG",) + _PHPK_H, ("R.Operator",) + _PHPK_H,
           ("ESWL",) + _PHPK_H, ("Panoramik",) + _PHPK_H, ("Radiografi Umum",) + _PHPK_H]
@@ -139,7 +140,7 @@ def staff_label(ini):
 
 
 DEFAULT_CFG = {
-    "rooms": [dict(nama=n, tekanan=False, t_lo=20.0, t_hi=24.0, h_lo=float(hl), h_hi=float(hh)) for n, hl, hh in _ROOMS],
+    "rooms": [dict(nama=n, tekanan=False, t_lo=SUHU_NORMAL[0], t_hi=SUHU_NORMAL[1], h_lo=float(hl), h_hi=float(hh)) for n, hl, hh in _ROOMS],
     "staff": ["SL", "AG", "AY", "WT", "FF"],
     "devices": _DEVICES,
 }
@@ -366,6 +367,8 @@ def load_cfg():
     for k in ("rooms", "staff", "devices", "base_url"):
         if c.get(k):
             cfg[k] = c[k]
+    for r in cfg["rooms"]:   # batas suhu normal sama untuk semua ruangan (menimpa nilai lama yang mungkin tersimpan)
+        r["t_lo"], r["t_hi"] = SUHU_NORMAL
     return cfg
 
 
@@ -390,7 +393,7 @@ def room_std(name):
     for r in rooms():
         if r["nama"] == name:
             return r
-    return dict(nama=name, tekanan=False, t_lo=20.0, t_hi=24.0, h_lo=40.0, h_hi=60.0)
+    return dict(nama=name, tekanan=False, t_lo=SUHU_NORMAL[0], t_hi=SUHU_NORMAL[1], h_lo=40.0, h_hi=60.0)
 
 
 def devices():
@@ -801,7 +804,7 @@ TH_XE = TH_XD + 31 * TH_DAYW           # akhir kolom tanggal 31
 TH_KW = 71.0                           # kolom Keterangan
 
 TH_NOTES = [
-    "- P (Pagi) Pkl 08.00 Waktu Setempat, S (Sore) Pkl 14.00 Waktu Setempat, M (Malam) Pkl 21.00 Waktu Setempat",
+    "- P (Pagi) Pkl 08.00 Waktu Setempat, S (Siang) Pkl 14.00 Waktu Setempat, M (Malam) Pkl 21.00 Waktu Setempat",
     "- Tek = Tekanan (diisi jika ruangan mempunyai tekanan) positif dan negatif, dengan perbedaan tekanan udara luar minimal lebih rendah 2,5 pascal dibanding tekanan udara di sebelahnya",
     "- Jika suhu, kelembaban dan tekanan tidak sesuai dengan batasan normal, segera hubungi petugas maintenance.",
 ]
@@ -1570,10 +1573,10 @@ def dash_th():
     st.markdown("""
     <div class='kp'>
       <div class='kc'><div class='t'>Persentase pengisian</div><div class='v'><span class='cnt' style='--n:{pf:.0f}' data-s='%'></span></div><div class='s'>{fd} data terisi dari {d} slot jatuh tempo</div></div>
-      <div class='kc' style='border-top-color:#2e9e5b'><div class='t'>Suhu dalam batas ({lo:g}&ndash;{hi:g} &deg;C)</div><div class='v' style='color:#2e9e5b'><span class='cnt' style='--n:{po:.0f}' data-s='%'></span></div><div class='s'>{o} dari {f} data terisi</div></div>
+      <div class='kc' style='border-top-color:#2e9e5b'><div class='t'>Suhu normal ({lo:g}&ndash;{hi:g} &deg;C)</div><div class='v' style='color:#2e9e5b'><span class='cnt' style='--n:{po:.0f}' data-s='%'></span></div><div class='s'>{o} dari {f} data terisi</div></div>
       <div class='kc' style='border-top-color:#2e9e5b'><div class='t'>Kelembaban dalam batas ({hl:g}&ndash;{hh:g} %)</div><div class='v' style='color:#2e9e5b'><span class='cnt' style='--n:{ph:.0f}' data-s='%'></span></div><div class='s'>{ho} dari {f} data terisi</div></div>
-      <div class='kc' style='border-top-color:#d64545'><div class='t'>Suhu DI ATAS batas</div><div class='v' style='color:#d64545'><span class='cnt' style='--n:{hi_n}' data-s=''></span></div><div class='s'>slot pengukuran</div></div>
-      <div class='kc' style='border-top-color:#f0a81c'><div class='t'>Suhu di bawah batas</div><div class='v' style='color:#d98e00'><span class='cnt' style='--n:{lo_n}' data-s=''></span></div><div class='s'>slot pengukuran</div></div>
+      <div class='kc' style='border-top-color:#d64545'><div class='t'>Suhu DI ATAS batas (&gt; {hi:g} &deg;C)</div><div class='v' style='color:#d64545'><span class='cnt' style='--n:{hi_n}' data-s=''></span></div><div class='s'>slot pengukuran tidak normal</div></div>
+      <div class='kc' style='border-top-color:#f0a81c'><div class='t'>Suhu di bawah batas (&lt; {lo:g} &deg;C)</div><div class='v' style='color:#d98e00'><span class='cnt' style='--n:{lo_n}' data-s=''></span></div><div class='s'>slot pengukuran</div></div>
       <div class='kc' style='border-top-color:#9aa5b1'><div class='t'>Jumlah tanggal yang belum diisi</div><div class='v' style='color:#667'><span class='cnt' style='--n:{e}' data-s=''></span></div><div class='s'>{fe} tanggal yang belum diisi</div></div>
     </div>""".format(pf=an["pct_fill"], f=an["filled"], fd=an["filled_due"], d=an["due"], lo=std["t_lo"], hi=std["t_hi"], po=an["pct_ok"], o=an["ok"],
                      hl=std["h_lo"], hh=std["h_hi"], ph=an["pct_hum"], ho=an["hum_ok"],
@@ -1592,8 +1595,8 @@ def dash_th():
             body += "<td class='s-{}' title='{}'>{}</td>".format(stt, tip, txt)
         body += "</tr>"
     st.markdown("<div style='overflow-x:auto'><table class='cal'>{}{}</table></div>".format(head, body), unsafe_allow_html=True)
-    st.markdown("<div class='lg2'><span><i class='s-ok'></i>Dalam batas</span><span><i class='s-high'></i>&#9650; Di atas batas</span><span><i class='s-low'></i>&#9660; Di bawah batas</span>"
-                "<span><i class='s-empty'></i>Belum diisi</span></div>", unsafe_allow_html=True)
+    st.markdown("<div class='lg2'><span><i class='s-ok'></i>Normal ({lo:g}&ndash;{hi:g} &deg;C)</span><span><i class='s-high'></i>&#9650; Di atas batas (tidak normal)</span><span><i class='s-low'></i>&#9660; Di bawah batas</span>"
+                "<span><i class='s-empty'></i>Belum diisi</span></div>".format(lo=std["t_lo"], hi=std["t_hi"]), unsafe_allow_html=True)
 
     data = month_data(ruang, y, m)
     if data:
@@ -1630,7 +1633,7 @@ def dash_th():
     rows = []
     for rn in room_names():
         a = analyze(rn, y, m)
-        rows.append({"Ruangan": rn, "% Pengisian": round(a["pct_fill"]), "% Suhu dalam batas": round(a["pct_ok"]), "% Kelembaban dalam batas": round(a["pct_hum"]),
+        rows.append({"Ruangan": rn, "% Pengisian": round(a["pct_fill"]), "% Suhu normal": round(a["pct_ok"]), "% Kelembaban dalam batas": round(a["pct_hum"]),
                      "Suhu di atas batas": len(a["high"]), "Suhu di bawah batas": len(a["low"]), "Tanggal yang kosong": a["n_empty"],
                      "Tanggal yang belum diisi": days_text(a["full_empty"])})
     st.dataframe(pd.DataFrame(rows), hide_index=True)
@@ -1803,14 +1806,14 @@ def th_entry_form(ruang, tgl, shift_key, petugas, p):
     std = room_std(ruang)
     _show_msg(p + "_msg")
     c3, c4 = st.columns(2)
-    suhu = c3.number_input("Suhu (°C) [standar {:g}–{:g}] *".format(std["t_lo"], std["t_hi"]), value=None, min_value=0.0, max_value=60.0, step=0.1,
+    suhu = c3.number_input("Suhu (°C) [normal {:g}–{:g}] *".format(std["t_lo"], std["t_hi"]), value=None, min_value=0.0, max_value=60.0, step=0.1,
                            format="%.1f", placeholder="hasil baca termometer", key=p + "_suhu")
     hum = c4.number_input("Kelembaban (%) [standar {:g}–{:g}] *".format(std["h_lo"], std["h_hi"]), value=None, min_value=0.0, max_value=100.0, step=1.0,
                           format="%.0f", placeholder="hasil baca higrometer", key=p + "_hum")
     ts = classify(suhu, std["t_lo"], std["t_hi"]) if suhu is not None else None
     hs = classify(hum, std["h_lo"], std["h_hi"]) if hum is not None else None
     if ts:
-        c3.markdown("<div class='hint {}'>{}</div>".format("ok" if ts == "ok" else "bad", "✓ Dalam batas standar" if ts == "ok" else "⚠ {} batas standar ({:g}–{:g} °C)".format("DI ATAS" if ts == "high" else "DI BAWAH", std["t_lo"], std["t_hi"])), unsafe_allow_html=True)
+        c3.markdown("<div class='hint {}'>{}</div>".format("ok" if ts == "ok" else "bad", "✓ Suhu normal" if ts == "ok" else "⚠ Tidak normal: {} batas ({:g}–{:g} °C)".format("DI ATAS" if ts == "high" else "DI BAWAH", std["t_lo"], std["t_hi"])), unsafe_allow_html=True)
     if hs:
         c4.markdown("<div class='hint {}'>{}</div>".format("ok" if hs == "ok" else "bad", "✓ Dalam batas standar" if hs == "ok" else "⚠ {} batas standar ({:g}–{:g} %)".format("DI ATAS" if hs == "high" else "DI BAWAH", std["h_lo"], std["h_hi"])), unsafe_allow_html=True)
     abn = (ts is not None and ts != "ok") or (hs is not None and hs != "ok")
@@ -2111,9 +2114,9 @@ with st.sidebar:
         with st.expander("Pengaturan ruang & staff"):
             cfg = load_cfg()
             nm = st.text_input("Nama ruang baru / ruang yang diubah", key="cfg_nm")
+            tl, th = SUHU_NORMAL
+            st.caption("Suhu normal {:g}–{:g} °C berlaku sama untuk semua ruangan (diatur di SUHU_NORMAL pada kode).".format(tl, th))
             c1, c2 = st.columns(2)
-            tl = c1.number_input("Suhu min (°C)", value=20.0, step=0.5, key="cfg_tl")
-            th = c2.number_input("Suhu maks (°C)", value=24.0, step=0.5, key="cfg_th")
             hl = c1.number_input("Kelembaban min (%)", value=40.0, step=1.0, key="cfg_hl")
             hh = c2.number_input("Kelembaban maks (%)", value=60.0, step=1.0, key="cfg_hh")
             if st.button("Simpan ruang", key="cfg_add"):
